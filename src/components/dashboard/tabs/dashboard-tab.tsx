@@ -157,7 +157,7 @@ export default function DashboardTab({
               />
           </Card>
           <Card className="p-0 sm:p-2 h-full flex flex-col items-center justify-center relative">
-            <SpeedGauge speed={state.speed} maxSpeed={MODE_SETTINGS[state.driveMode].maxSpeed} />
+            <SpeedGauge speed={state.displaySpeed} maxSpeed={MODE_SETTINGS[state.driveMode].maxSpeed} />
           </Card>
         </div>
 

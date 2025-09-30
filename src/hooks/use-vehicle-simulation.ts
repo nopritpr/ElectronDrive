@@ -97,7 +97,10 @@ export function useVehicleSimulation() {
   const updateVehicleState = useCallback(() => {
     const now = Date.now();
     const timeDelta = (now - state.lastUpdate) / 1000;
-    if (timeDelta <= 0) return;
+    if (timeDelta <= 0) {
+        requestAnimationFrame(updateVehicleState);
+        return;
+    }
 
     let newState: Partial<VehicleState> = { lastUpdate: now };
     const physics = physicsRef.current;
@@ -204,7 +207,10 @@ export function useVehicleSimulation() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key in keys) keys[e.key] = true;
+      if (e.key in keys) {
+        e.preventDefault();
+        keys[e.key] = true;
+      }
       if (e.key === 'c') toggleCharging();
       if (e.key === '1') setDriveMode('Eco');
       if (e.key === '2') setDriveMode('City');
@@ -212,7 +218,10 @@ export function useVehicleSimulation() {
       if (e.key === 'a') toggleAC();
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key in keys) keys[e.key] = false;
+      if (e.key in keys) {
+        e.preventDefault();
+        keys[e.key] = false;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -228,7 +237,7 @@ export function useVehicleSimulation() {
       clearInterval(aiTimer);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [updateVehicleState, callAI]);
+  }, [callAI]);
 
   const setDriveMode = (mode: DriveMode) => {
     setState({ driveMode: mode });
