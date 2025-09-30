@@ -9,7 +9,8 @@ import OptimizationTab from '@/components/dashboard/tabs/optimization-tab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import HelpModal from './help-modal';
 import ProfileModal from './profile-modal';
-import type { WeatherData } from '@/lib/types';
+import type { WeatherData, FiveDayForecast } from '@/lib/types';
+import WeeklyForecast from './weekly-forecast';
 
 export default function Dashboard() {
   const {
@@ -31,22 +32,32 @@ export default function Dashboard() {
   const [isHelpModalOpen, setHelpModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [forecast, setForecast] = useState<FiveDayForecast | null>(null);
 
   useEffect(() => {
-    const fetchWeather = async () => {
+    const fetchWeatherData = async () => {
       try {
-        const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=37.8&lon=-122.4&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`);
-        if(response.ok) {
-          const data = await response.json();
-          setWeather(data);
-          setState({ weather: data, outsideTemp: data.main.temp });
+        // Fetch current weather
+        const weatherResponse = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=37.8&lon=-122.4&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`);
+        if (weatherResponse.ok) {
+          const weatherData = await weatherResponse.json();
+          setWeather(weatherData);
+          setState({ weather: weatherData, outsideTemp: weatherData.main.temp });
+        }
+
+        // Fetch 5-day forecast
+        const forecastResponse = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=37.8&lon=-122.4&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`);
+        if (forecastResponse.ok) {
+          const forecastData = await forecastResponse.json();
+          setForecast(forecastData);
         }
       } catch (error) {
         console.error("Failed to fetch weather data", error);
       }
     };
-    fetchWeather();
-    const interval = setInterval(fetchWeather, 300000); // every 5 minutes
+
+    fetchWeatherData();
+    const interval = setInterval(fetchWeatherData, 300000); // every 5 minutes
     return () => clearInterval(interval);
   }, [setState]);
 
@@ -71,27 +82,32 @@ export default function Dashboard() {
         isPerfMode={state.stabilizerEnabled}
         weather={weather}
       />
-      <main className="flex-grow pt-4 overflow-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="hidden">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="optimization">Optimization</TabsTrigger>
-          </TabsList>
-          <TabsContent value="dashboard" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
-            <DashboardTab {...cardProps} />
-          </TabsContent>
-          <TabsContent value="analytics" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
-            <AnalyticsTab {...cardProps} />
-          </TabsContent>
-          <TabsContent value="optimization" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
-            <OptimizationTab
-              state={state}
-              onProfileSwitchClick={() => setProfileModalOpen(true)}
-              onStabilizerToggle={() => setState(prev => ({...prev, stabilizerEnabled: !prev.stabilizerEnabled}))}
-            />
-          </TabsContent>
-        </Tabs>
+      <main className="flex-grow pt-4 overflow-hidden flex gap-4">
+        <div className="flex-grow h-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            <TabsList className="hidden">
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="optimization">Optimization</TabsTrigger>
+            </TabsList>
+            <TabsContent value="dashboard" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
+              <DashboardTab {...cardProps} />
+            </TabsContent>
+            <TabsContent value="analytics" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
+              <AnalyticsTab {...cardProps} />
+            </TabsContent>
+            <TabsContent value="optimization" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
+              <OptimizationTab
+                state={state}
+                onProfileSwitchClick={() => setProfileModalOpen(true)}
+                onStabilizerToggle={() => setState(prev => ({...prev, stabilizerEnabled: !prev.stabilizerEnabled}))}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
+        <div className="w-24 flex-shrink-0 hidden md:flex">
+          <WeeklyForecast forecast={forecast} />
+        </div>
       </main>
       <HelpModal isOpen={isHelpModalOpen} onOpenChange={setHelpModalOpen} />
       <ProfileModal 
