@@ -202,10 +202,10 @@ export default function DashboardTab({
               } as React.CSSProperties}
             ></div>
             <Image
-              src="https://assets.codepen.io/285131/car-128.png"
+              src="https://storage.googleapis.com/studioprompt-images/technical-interview/gold-car.png"
               alt="EV Car"
-              width={128}
-              height={64}
+              width={200}
+              height={200}
               className={cn('relative z-10 w-[128px] h-auto transition-transform duration-500 ease-out', state.speed > 1 && 'animate-car-drive')}
               style={{
                 filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.4))',

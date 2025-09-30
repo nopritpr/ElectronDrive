@@ -39,6 +39,12 @@ const nextConfig: NextConfig = {
         hostname: 'openweathermap.org',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
