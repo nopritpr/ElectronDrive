@@ -90,7 +90,7 @@ export default function Dashboard() {
               <TabsTrigger value="optimization">Optimization</TabsTrigger>
             </TabsList>
             <TabsContent value="dashboard" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
-              <DashboardTab {...cardProps} />
+              <DashboardTab {...cardProps} weather={weather} forecast={forecast} />
             </TabsContent>
             <TabsContent value="analytics" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
               <AnalyticsTab {...cardProps} />
@@ -103,9 +103,6 @@ export default function Dashboard() {
               />
             </TabsContent>
           </Tabs>
-        </div>
-        <div className="w-64 flex-shrink-0 hidden md:flex">
-          <Weather weather={weather} forecast={forecast} />
         </div>
       </main>
       <HelpModal isOpen={isHelpModalOpen} onOpenChange={setHelpModalOpen} />
