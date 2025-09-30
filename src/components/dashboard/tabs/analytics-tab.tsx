@@ -71,7 +71,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                 <CardHeader>
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><Zap className="w-4 h-4"/>Charging Habit Analysis</CardTitle>
                 </CardHeader>
-                <CardContent className="flex-grow flex items-center justify-center">
+                <CardContent className="flex-grow flex items-center justify-center min-h-0 min-w-0">
                     <ChargingHabitChart data={analyzeChargingPatterns()} />
                 </CardContent>
             </Card>
@@ -125,4 +125,5 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
             </Card>
         </div>
     );
-}
+
+    
