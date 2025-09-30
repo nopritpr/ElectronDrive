@@ -33,6 +33,12 @@ const nextConfig: NextConfig = {
         hostname: 'assets.codepen.io',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'openweathermap.org',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
