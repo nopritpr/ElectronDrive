@@ -2,18 +2,18 @@
 
 import * as React from 'react';
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
+  ChartContainer
 } from '@/components/ui/chart';
 import { Pie, PieChart } from 'recharts';
+import type { DriveMode } from '@/lib/types';
+import { MODE_SETTINGS } from '@/lib/constants';
 
 interface SpeedGaugeProps {
   speed: number;
-  maxSpeed: number;
+  driveMode: DriveMode;
 }
 
-export default function SpeedGauge({ speed, maxSpeed }: SpeedGaugeProps) {
+export default function SpeedGauge({ speed, driveMode }: SpeedGaugeProps) {
   const chartConfig = {
     speed: {
       label: 'Speed',
@@ -22,8 +22,21 @@ export default function SpeedGauge({ speed, maxSpeed }: SpeedGaugeProps) {
         label: 'Empty',
     }
   };
+
+  const getSpeedColor = () => {
+    if (speed <= MODE_SETTINGS.Eco.maxSpeed) {
+      return 'hsl(var(--regen-green))';
+    } else if (speed <= MODE_SETTINGS.City.maxSpeed) {
+      return 'hsl(var(--primary))';
+    } else {
+      return 'hsl(var(--destructive))';
+    }
+  };
+
+  const maxSpeed = MODE_SETTINGS.Sports.maxSpeed;
+
   const data = [
-    { name: 'speed', value: speed, fill: 'hsl(var(--primary))' },
+    { name: 'speed', value: speed, fill: getSpeedColor() },
     { name: 'empty', value: Math.max(0, maxSpeed - speed), fill: 'hsl(var(--muted))' },
   ];
 
