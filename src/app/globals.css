@@ -209,20 +209,20 @@
   width: 100%;
 }
 .mapboxgl-ctrl-directions {
-    background-color: hsl(var(--card));
-    border-radius: var(--radius);
+    background-color: hsl(var(--card)) !important;
+    border-radius: var(--radius) !important;
     box-shadow: none !important;
 }
 .mapboxgl-ctrl-directions .directions-control-instructions,
 .mapboxgl-ctrl-directions .directions-control-inputs,
 .mapboxgl-ctrl-directions .directions-control-summary,
 .mapboxgl-ctrl-directions .mapbox-directions-profile {
-    background-color: hsl(var(--card));
-    color: hsl(var(--foreground));
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--foreground)) !important;
 }
 
 .mapboxgl-ctrl-directions .directions-control-inputs input {
-    color: hsl(var(--foreground));
+    color: hsl(var(--foreground)) !important;
 }
 
 .mapboxgl-ctrl-directions .directions-control-inputs {
