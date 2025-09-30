@@ -11,6 +11,7 @@ import type { VehicleState, DriveMode, VehiclePhysics, WeatherData, FiveDayForec
 import { MODE_SETTINGS } from "@/lib/constants";
 import NavigationMap from '../navigation-map';
 import Weather from '../weather';
+import { useToast } from "@/hooks/use-toast";
 
 interface DashboardTabProps {
   state: VehicleState;
@@ -43,6 +44,19 @@ export default function DashboardTab({
   resetTrip,
   setActiveTrip,
 }: DashboardTabProps) {
+  const { toast } = useToast();
+
+  const handleChargingToggle = () => {
+    if (state.speed > 0 && !state.isCharging) {
+      toast({
+        title: "Cannot start charging",
+        description: "Vehicle must be stationary to start charging.",
+        variant: "destructive",
+      });
+      return;
+    }
+    toggleCharging();
+  };
 
   const getRange = () => {
     const consumption = MODE_SETTINGS[state.driveMode].baseConsumption;
@@ -81,8 +95,13 @@ export default function DashboardTab({
             ))}
           </div>
           <div className="mt-4 flex items-center justify-between">
-            <label htmlFor="charging-toggle" className="text-sm">Charging Connected</label>
-            <Switch id="charging-toggle" checked={state.isCharging} onCheckedChange={toggleCharging} />
+            <label htmlFor="charging-toggle" className={cn("text-sm", state.speed > 0 && "text-muted-foreground")}>Charging Connected</label>
+            <Switch 
+              id="charging-toggle" 
+              checked={state.isCharging} 
+              onCheckedChange={handleChargingToggle}
+              disabled={state.speed > 0 && !state.isCharging}
+            />
           </div>
         </Card>
         
@@ -107,7 +126,7 @@ export default function DashboardTab({
              <p className="flex justify-between items-center">
               <span>Efficiency:</span>
               <span className="font-mono font-semibold">
-                {state.speed > 0 && isFinite(state.efficiency) ? Math.round(state.efficiency) : '--'} Wh/km
+                {state.speed > 1 && isFinite(state.efficiency) && state.efficiency > 0 ? Math.round(state.efficiency) : '--'} Wh/km
               </span>
             </p>
           </div>

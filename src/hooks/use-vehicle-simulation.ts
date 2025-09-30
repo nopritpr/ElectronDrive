@@ -33,7 +33,7 @@ export function useVehicleSimulation() {
   });
 
   const callAI = useCallback(async () => {
-    if (typeof state.batterySOC !== 'number') {
+    if (typeof state.batterySOC !== 'number' || state.batterySOC === null) {
       return;
     }
     try {
@@ -151,27 +151,29 @@ export function useVehicleSimulation() {
     let accessoryPower_kW = EV_CONSTANTS.accessoryBase_kW;
 
     let totalPower_kW = 0;
-
-    if (physics.regenActive && motorPower_kW < 0 && !state.isCharging) {
-        physics.regenPower = Math.min(EV_CONSTANTS.maxRegenPower_kW, Math.abs(motorPower_kW)) * modeSettings.regenEfficiency;
-        totalPower_kW = -physics.regenPower;
-    } else if (!state.isCharging) {
-        physics.regenPower = 0;
-        motorPower_kW = Math.max(0, motorPower_kW);
-        totalPower_kW = (motorPower_kW / modeSettings.powerFactor) / EV_CONSTANTS.drivetrainEfficiency + acPower_kW + accessoryPower_kW;
-    }
-
-    const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
-    const socChange = (energyConsumed_kWh / state.packNominalCapacity_kWh) * 100;
-    
-    let newSOC = state.batterySOC - socChange;
+    let newSOC = state.batterySOC;
 
     if (state.isCharging) {
-        const chargeRate_kW = EV_CONSTANTS.chargeRate_kW;
-        const chargeEnergy_kWh = chargeRate_kW * (timeDelta / 3600);
-        const chargeSocChange = (chargeEnergy_kWh / state.packNominalCapacity_kWh) * 100;
+        // Charging logic: ~1% per second for 50kWh battery
+        // 1% of 50kWh = 0.5 kWh. To add this in 1 sec, you need 0.5 kWs/s * 3600s/h = 1800 kW. That's too high.
+        // Let's set a fixed charge rate. 1% per second.
+        const chargeSocPerSecond = 1.0;
+        const chargeSocChange = chargeSocPerSecond * timeDelta;
         newSOC += chargeSocChange;
-        totalPower_kW = -chargeRate_kW;
+        totalPower_kW = -EV_CONSTANTS.chargeRate_kW; // Show a representative charge power
+    } else {
+        if (physics.regenActive && motorPower_kW < 0) {
+            physics.regenPower = Math.min(EV_CONSTANTS.maxRegenPower_kW, Math.abs(motorPower_kW)) * modeSettings.regenEfficiency;
+            totalPower_kW = -physics.regenPower;
+        } else {
+            physics.regenPower = 0;
+            motorPower_kW = Math.max(0, motorPower_kW);
+            totalPower_kW = (motorPower_kW / modeSettings.powerFactor) / EV_CONSTANTS.drivetrainEfficiency + acPower_kW + accessoryPower_kW;
+        }
+
+        const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
+        const socChange = (energyConsumed_kWh / state.packNominalCapacity_kWh) * 100;
+        newSOC -= socChange;
     }
     
     newSOC = Math.max(0, Math.min(100, newSOC));
@@ -182,7 +184,7 @@ export function useVehicleSimulation() {
     const newAccelerationHistory = [physics.acceleration, ...state.accelerationHistory].slice(0, 50);
     const newPowerHistory = [totalPower_kW, ...state.powerHistory].slice(0,50);
     const newDriveModeHistory = [state.driveMode, ...state.driveModeHistory].slice(0, 50);
-    const newWhPerKm = newSpeed > 0 ? (totalPower_kW * 1000) / newSpeed : 0;
+    const newWhPerKm = newSpeed > 0 ? (totalPower_kW * 1000) / newSpeed : state.efficiency;
     
     const recentWhPerKmWindow = [isFinite(newWhPerKm) && newWhPerKm > 0 ? newWhPerKm : state.recentWhPerKm, ...state.recentWhPerKmWindow].slice(0,100);
     const recentWhPerKm = recentWhPerKmWindow.reduce((a, b) => a + b, 0) / recentWhPerKmWindow.length;
@@ -191,7 +193,7 @@ export function useVehicleSimulation() {
         ...newState,
         speed: newSpeed,
         power: totalPower_kW,
-        efficiency: newSpeed > 0 && isFinite(newWhPerKm) ? newWhPerKm : 0,
+        efficiency: (state.efficiency * 0.9) + (newWhPerKm * 0.1),
         displaySpeed: state.displaySpeed + (newSpeed - state.displaySpeed) * 0.1,
         speedHistory: newSpeedHistory,
         accelerationHistory: newAccelerationHistory,
@@ -201,7 +203,7 @@ export function useVehicleSimulation() {
         recentWhPerKmWindow,
         ecoScore: state.ecoScore * 0.999 + (100 - Math.abs(physics.acceleration) * 2 - (totalPower_kW > 0 ? totalPower_kW / 10 : 0)) * 0.001,
         packSOH: Math.max(70, state.packSOH - Math.abs(socChange * 0.00001)),
-        equivalentFullCycles: state.equivalentFullCycles + Math.abs(socChange / 100)
+        equivalentFullCycles: state.equivalentFullCycles + Math.abs((state.batterySOC - newSOC) / 100)
     });
 
     requestAnimationFrame(updateVehicleState);
@@ -251,6 +253,15 @@ export function useVehicleSimulation() {
   const toggleAC = () => setState({ acOn: !state.acOn });
   const setAcTemp = (temp: number) => setState({ acTemp: temp });
   const toggleCharging = () => {
+    if (state.speed > 0 && !state.isCharging) {
+        toast({
+          title: "Cannot start charging",
+          description: "Vehicle must be stationary to start charging.",
+          variant: "destructive",
+        });
+        return;
+    }
+
     const isCharging = !state.isCharging;
     const now = Date.now();
     let newLogs = [...state.chargingLogs];
