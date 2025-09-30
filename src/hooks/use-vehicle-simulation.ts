@@ -163,9 +163,12 @@ export function useVehicleSimulation() {
             physics.regenPower = Math.min(EV_CONSTANTS.maxRegenPower_kW, Math.abs(motorPower_kW)) * modeSettings.regenEfficiency;
             totalPower_kW = -physics.regenPower;
         } else {
-            physics.regenPower = 0;
             motorPower_kW = Math.max(0, motorPower_kW); // Power can't be negative if not regenerating
+            physics.regenPower = 0;
             totalPower_kW = (motorPower_kW / modeSettings.powerFactor) / EV_CONSTANTS.drivetrainEfficiency + acPower_kW + accessoryPower_kW;
+        }
+        if (newSpeed === 0) { // Apply base accessory draw when idle
+          totalPower_kW = EV_CONSTANTS.accessoryBase_kW;
         }
 
         const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
@@ -191,7 +194,6 @@ export function useVehicleSimulation() {
         ...newState,
         speed: newSpeed,
         power: totalPower_kW,
-        efficiency: (state.efficiency * 0.9) + (newWhPerKm * 0.1),
         displaySpeed: state.displaySpeed + (newSpeed - state.displaySpeed) * 0.1,
         speedHistory: newSpeedHistory,
         accelerationHistory: newAccelerationHistory,

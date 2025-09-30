@@ -90,14 +90,9 @@ export default function DashboardTab({
   };
 
   const getRange = () => {
-    const consumption = MODE_SETTINGS[state.driveMode].baseConsumption;
-    let acConsumption = 0;
-    if (state.acOn) {
-      acConsumption = 10 + Math.abs(state.outsideTemp - state.acTemp) * 1.5; // Additional Wh/km for AC
-    }
-    const totalConsumption = consumption + acConsumption;
     const remainingEnergy_kWh = (state.batterySOC / 100) * (state.packNominalCapacity_kWh * state.packUsableFraction) * (state.packSOH / 100);
-    const range = remainingEnergy_kWh / (totalConsumption / 1000);
+    const consumption_kWh_per_km = state.recentWhPerKm > 0 ? state.recentWhPerKm / 1000 : MODE_SETTINGS.Eco.baseConsumption / 1000;
+    const range = remainingEnergy_kWh / consumption_kWh_per_km;
     return Math.max(0, range);
   }
 
@@ -157,7 +152,7 @@ export default function DashboardTab({
              <p className="flex justify-between items-center">
               <span>Efficiency:</span>
               <span className="font-mono font-semibold">
-                {state.speed > 1 && isFinite(state.efficiency) && state.efficiency > 0 ? Math.round(state.efficiency) : '--'} Wh/km
+                {state.speed > 1 && isFinite(state.recentWhPerKm) && state.recentWhPerKm > 0 ? Math.round(state.recentWhPerKm) : '--'} Wh/km
               </span>
             </p>
           </div>
