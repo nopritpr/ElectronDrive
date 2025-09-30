@@ -11,8 +11,8 @@ export default {
     extend: {
       fontFamily: {
         body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
-        code: ['monospace'],
+        headline: ['Space Grotesk', 'sans-serif'],
+        code: ['Source Code Pro', 'monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -65,6 +65,7 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        'regen-green': 'hsl(var(--regen-green))',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -88,11 +89,19 @@ export default {
             height: '0',
           },
         },
+        'road-scroll': {
+          '0%': { backgroundPosition: '0 0' },
+          '100%': { backgroundPosition: '-200px 0' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'road-scroll': 'road-scroll 2s linear infinite',
       },
+      aspectRatio: {
+        '16/9': '16 / 9',
+      }
     },
   },
   plugins: [require('tailwindcss-animate')],
