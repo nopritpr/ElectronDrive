@@ -152,15 +152,13 @@ export function useVehicleSimulation() {
 
     let totalPower_kW = 0;
     let newSOC = state.batterySOC;
+    let socChange = 0;
 
     if (state.isCharging) {
-        // Charging logic: ~1% per second for 50kWh battery
-        // 1% of 50kWh = 0.5 kWh. To add this in 1 sec, you need 0.5 kWs/s * 3600s/h = 1800 kW. That's too high.
-        // Let's set a fixed charge rate. 1% per second.
         const chargeSocPerSecond = 1.0;
-        const chargeSocChange = chargeSocPerSecond * timeDelta;
-        newSOC += chargeSocChange;
-        totalPower_kW = -EV_CONSTANTS.chargeRate_kW; // Show a representative charge power
+        socChange = chargeSocPerSecond * timeDelta;
+        newSOC += socChange;
+        totalPower_kW = -EV_CONSTANTS.chargeRate_kW;
     } else {
         if (physics.regenActive && motorPower_kW < 0) {
             physics.regenPower = Math.min(EV_CONSTANTS.maxRegenPower_kW, Math.abs(motorPower_kW)) * modeSettings.regenEfficiency;
@@ -172,7 +170,7 @@ export function useVehicleSimulation() {
         }
 
         const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
-        const socChange = (energyConsumed_kWh / state.packNominalCapacity_kWh) * 100;
+        socChange = (energyConsumed_kWh / state.packNominalCapacity_kWh) * 100;
         newSOC -= socChange;
     }
     
