@@ -44,6 +44,17 @@ export default function DashboardTab({
   setActiveTrip,
 }: DashboardTabProps) {
 
+  const getRange = () => {
+    const baseRange = (state.packSOH / 100) * state.packUsableFraction * state.batteryCapacity_kWh / (state.recentWhPerKm > 0 ? state.recentWhPerKm / 1000 : 180 / 1000) * (state.batterySOC / 100);
+
+    let range = baseRange;
+    if (state.driveMode === 'Eco') range = baseRange * MODE_SETTINGS.Eco.rangeFactor;
+    if (state.driveMode === 'Sports') range = baseRange * MODE_SETTINGS.Sports.rangeFactor;
+    if (state.acOn) range *= 0.9;
+    
+    return range;
+  }
+
   return (
     <div className="h-full grid grid-cols-12 grid-rows-6 gap-4 min-h-0">
       {/* Left Column */}
@@ -156,13 +167,14 @@ export default function DashboardTab({
 
         <Card className="p-4">
           <h3 className="font-semibold mb-1 text-sm font-headline">Battery & Range</h3>
-          <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden mb-2">
+           <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden mb-2">
               <Progress value={state.batterySOC} className="h-4" />
+              {state.isCharging && <div className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,hsla(0,0%,100%,.1)_25%,transparent_25%)] bg-[length:1rem_1rem] animate-charge-shine" />}
           </div>
           <div className="flex justify-between items-end mt-1 text-base font-semibold">
               <span className="text-lg">{state.batterySOC.toFixed(1)}%</span>
               <div className="text-right">
-                  <span className="font-semibold text-lg">{Math.round( (state.packSOH/100) * state.packUsableFraction * state.batteryCapacity_kWh / (state.recentWhPerKm > 0 ? state.recentWhPerKm/1000 : 0.18) * (state.batterySOC/100) )} km</span>
+                  <span className="font-semibold text-lg">{Math.round(getRange())} km</span>
                   <p className="text-xs text-primary font-normal" title="Based on driving style, temperature, and usage patterns">AI: {Math.round(state.predictedDynamicRange)} km</p>
               </div>
           </div>

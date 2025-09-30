@@ -93,11 +93,16 @@ export default {
           '0%': { backgroundPosition: '0 0' },
           '100%': { backgroundPosition: '0 -20px' },
         },
+        'charge-shine': {
+          '0%': { backgroundPosition: '-1rem 0' },
+          '100%': { backgroundPosition: '1rem 0' },
+        }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'road-scroll': 'road-scroll 0.5s linear infinite',
+        'charge-shine': 'charge-shine 1s linear infinite',
       },
       aspectRatio: {
         '16/9': '16 / 9',

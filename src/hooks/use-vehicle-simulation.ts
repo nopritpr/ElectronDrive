@@ -227,6 +227,7 @@ export function useVehicleSimulation() {
       cancelAnimationFrame(simId);
       clearInterval(aiTimer);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateVehicleState, callAI]);
 
   const setDriveMode = (mode: DriveMode) => {

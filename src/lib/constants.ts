@@ -40,7 +40,7 @@ export const defaultState: VehicleState = {
   regenEfficiencyDynamic: 0.85,
   thermalThrottleFactor: 1.0,
   regenLimitFactor: 1.0,
-  recentWhPerKm: 0,
+  recentWhPerKm: 180,
   recentWhPerKmWindow: [],
   styleMetrics: {
     aggression: 0,
@@ -103,6 +103,7 @@ export const EV_CONSTANTS = {
     b: 0.2,
     c: 85,
   },
+  drivetrainEfficiency: 0.85,
 };
 
 export const MODE_SETTINGS: Record<
@@ -118,30 +119,30 @@ export const MODE_SETTINGS: Record<
   }
 > = {
   Eco: {
-    maxSpeed: 45,
-    accelRate: 12.0,
-    decelRate: 8.0,
-    brakeRate: 20,
+    maxSpeed: 90,
+    accelRate: 4.0,
+    decelRate: 2.0,
+    brakeRate: 15,
     regenEfficiency: 0.9,
-    powerFactor: 0.6,
+    powerFactor: 0.7,
     rangeFactor: 1.25,
   },
   City: {
-    maxSpeed: 75,
-    accelRate: 18,
-    decelRate: 10,
+    maxSpeed: 120,
+    accelRate: 6.0,
+    decelRate: 1.5,
     brakeRate: 25,
-    regenEfficiency: 0.75,
+    regenEfficiency: 0.8,
     powerFactor: 1.0,
     rangeFactor: 1.0,
   },
   Sports: {
-    maxSpeed: 120,
-    accelRate: 30,
-    decelRate: 12,
+    maxSpeed: 160,
+    accelRate: 9.0,
+    decelRate: 1.0,
     brakeRate: 35,
-    regenEfficiency: 0.55,
-    powerFactor: 1.6,
-    rangeFactor: 0.75,
+    regenEfficiency: 0.65,
+    powerFactor: 1.4,
+    rangeFactor: 0.8,
   },
 };
