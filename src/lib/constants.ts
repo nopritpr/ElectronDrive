@@ -40,7 +40,7 @@ export const defaultState: VehicleState = {
   regenEfficiencyDynamic: 0.85,
   thermalThrottleFactor: 1.0,
   regenLimitFactor: 1.0,
-  recentWhPerKm: 180,
+  recentWhPerKm: 111,
   recentWhPerKmWindow: [],
   styleMetrics: {
     aggression: 0,
@@ -53,7 +53,7 @@ export const defaultState: VehicleState = {
   lastDegradationUpdate: 0,
   lastRangeModelUpdate: 0,
   predictedEcoRange: 0,
-  predictedDynamicRange: 443,
+  predictedDynamicRange: 450,
   limpMode: false,
   powerLimit_kW: 0,
   voltageNominal: 360,
@@ -84,26 +84,9 @@ export const EV_CONSTANTS = {
   rollingResistanceCoeff: 0.010,
   gravity: 9.806,
   accessoryBase_kW: 0.25,
-  accessoryVariance_kW: 0.15,
-  maxDrivePower_kW: 160,
+  drivetrainEfficiency: 0.9,
   maxRegenPower_kW: 70,
-  coldTempPenaltyStart: 15,
-  hotTempPenaltyStart: 40,
-  coldTempRegenLimit: 10,
-  minUsableSOC: 6,
-  limpModeSOC: 5,
-  thermalThrottleTemp: 48,
-  criticalTemp: 55,
-  degradationCycleCoeff: 0.035,
-  degradationTempHotCoeff: 0.00004,
-  degradationTempColdCoeff: 0.00001,
-  smoothingRange: 0.15,
-  whPerKmBasePoly: {
-    a: 0.012,
-    b: 0.2,
-    c: 85,
-  },
-  drivetrainEfficiency: 0.85,
+  chargeRate_kW: 22, // Corresponds to approx 1% per 5s for a 50kWh battery
 };
 
 export const MODE_SETTINGS: Record<
@@ -115,17 +98,17 @@ export const MODE_SETTINGS: Record<
     brakeRate: number;
     regenEfficiency: number;
     powerFactor: number;
-    rangeFactor: number;
+    baseConsumption: number; // Wh/km
   }
 > = {
   Eco: {
-    maxSpeed: 90,
-    accelRate: 4.0,
+    maxSpeed: 100,
+    accelRate: 3.5,
     decelRate: 2.0,
     brakeRate: 15,
     regenEfficiency: 0.9,
-    powerFactor: 0.7,
-    rangeFactor: 1.25,
+    powerFactor: 1.2,
+    baseConsumption: 111, // Wh/km to achieve ~450km range on 50kWh
   },
   City: {
     maxSpeed: 120,
@@ -134,15 +117,15 @@ export const MODE_SETTINGS: Record<
     brakeRate: 25,
     regenEfficiency: 0.8,
     powerFactor: 1.0,
-    rangeFactor: 1.0,
+    baseConsumption: 119, // Wh/km to achieve ~420km range
   },
   Sports: {
     maxSpeed: 160,
-    accelRate: 9.0,
+    accelRate: 10.0,
     decelRate: 1.0,
     brakeRate: 35,
     regenEfficiency: 0.65,
-    powerFactor: 1.4,
-    rangeFactor: 0.8,
+    powerFactor: 0.8,
+    baseConsumption: 125, // Wh/km to achieve ~400km range
   },
 };

@@ -34,7 +34,7 @@ export function useVehicleSimulation() {
 
   const callAI = useCallback(async () => {
     if (typeof state.batterySOC !== 'number') {
-      return; // Don't call AI if state is not ready
+      return;
     }
     try {
       const [rec, style, range, soh] = await Promise.all([
@@ -60,8 +60,8 @@ export function useVehicleSimulation() {
           },
           weatherData: {
             temperature: state.outsideTemp,
-            precipitation: 'sunny',
-            windSpeed: 15,
+            precipitation: state.weather?.weather[0].main.toLowerCase() || 'sunny',
+            windSpeed: state.weather?.wind.speed ? state.weather.wind.speed * 3.6 : 15,
           },
           historicalData: state.speedHistory.map((s, i) => ({
             speed: s,
@@ -85,13 +85,8 @@ export function useVehicleSimulation() {
 
     } catch (error) {
       console.error('AI Flow error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'AI Service Error',
-        description: 'Could not connect to AI services.',
-      });
     }
-  }, [state.drivingStyle, state.predictedDynamicRange, state.batterySOC, state.acOn, state.driveMode, state.outsideTemp, state.speedHistory, state.accelerationHistory, state.driveModeHistory, state.ecoScore, state.acTemp, state.powerHistory, state.batteryCapacity_kWh, state.sohHistory, toast]);
+  }, [state.drivingStyle, state.predictedDynamicRange, state.batterySOC, state.acOn, state.driveMode, state.outsideTemp, state.speedHistory, state.accelerationHistory, state.driveModeHistory, state.ecoScore, state.acTemp, state.powerHistory, state.batteryCapacity_kWh, state.sohHistory, state.weather]);
 
 
   const updateVehicleState = useCallback(() => {
@@ -144,10 +139,13 @@ export function useVehicleSimulation() {
     }
 
     // --- Power & Battery ---
-    const aeroDrag = 0.5 * EV_CONSTANTS.airDensity * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.dragCoeff * Math.pow(newSpeed / 3.6, 2);
+    const speed_mps = newSpeed / 3.6;
+    const aeroDrag = 0.5 * EV_CONSTANTS.airDensity * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.dragCoeff * Math.pow(speed_mps, 2);
     const rollingResistance = EV_CONSTANTS.rollingResistanceCoeff * EV_CONSTANTS.mass_kg * EV_CONSTANTS.gravity;
-    const motorForce = aeroDrag + rollingResistance + (EV_CONSTANTS.mass_kg * physics.acceleration);
-    let motorPower_kW = (motorForce * (newSpeed / 3.6)) / 1000;
+    const accelerationForce = EV_CONSTANTS.mass_kg * physics.acceleration;
+    const motorForce = aeroDrag + rollingResistance + accelerationForce;
+    
+    let motorPower_kW = (motorForce * speed_mps) / 1000;
 
     let acPower_kW = state.acOn ? 0.5 + Math.abs(state.outsideTemp - state.acTemp) * 0.1 : 0;
     let accessoryPower_kW = EV_CONSTANTS.accessoryBase_kW;
@@ -160,7 +158,7 @@ export function useVehicleSimulation() {
     } else if (!state.isCharging) {
         physics.regenPower = 0;
         motorPower_kW = Math.max(0, motorPower_kW);
-        totalPower_kW = (motorPower_kW * modeSettings.powerFactor) / EV_CONSTANTS.drivetrainEfficiency + acPower_kW + accessoryPower_kW;
+        totalPower_kW = (motorPower_kW / modeSettings.powerFactor) / EV_CONSTANTS.drivetrainEfficiency + acPower_kW + accessoryPower_kW;
     }
 
     const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
@@ -169,7 +167,7 @@ export function useVehicleSimulation() {
     let newSOC = state.batterySOC - socChange;
 
     if (state.isCharging) {
-        const chargeRate_kW = 3.3; // Level 2 charging
+        const chargeRate_kW = EV_CONSTANTS.chargeRate_kW;
         const chargeEnergy_kWh = chargeRate_kW * (timeDelta / 3600);
         const chargeSocChange = (chargeEnergy_kWh / state.packNominalCapacity_kWh) * 100;
         newSOC += chargeSocChange;
@@ -184,19 +182,24 @@ export function useVehicleSimulation() {
     const newAccelerationHistory = [physics.acceleration, ...state.accelerationHistory].slice(0, 50);
     const newPowerHistory = [totalPower_kW, ...state.powerHistory].slice(0,50);
     const newDriveModeHistory = [state.driveMode, ...state.driveModeHistory].slice(0, 50);
-    const newWhPerKm = totalPower_kW > 0 ? (totalPower_kW * 1000) / newSpeed : 0;
+    const newWhPerKm = newSpeed > 0 ? (totalPower_kW * 1000) / newSpeed : 0;
+    
+    const recentWhPerKmWindow = [isFinite(newWhPerKm) && newWhPerKm > 0 ? newWhPerKm : state.recentWhPerKm, ...state.recentWhPerKmWindow].slice(0,100);
+    const recentWhPerKm = recentWhPerKmWindow.reduce((a, b) => a + b, 0) / recentWhPerKmWindow.length;
 
     setState({
         ...newState,
         speed: newSpeed,
         power: totalPower_kW,
-        efficiency: isFinite(newWhPerKm) ? newWhPerKm : 0,
+        efficiency: newSpeed > 0 && isFinite(newWhPerKm) ? newWhPerKm : 0,
         displaySpeed: state.displaySpeed + (newSpeed - state.displaySpeed) * 0.1,
         speedHistory: newSpeedHistory,
         accelerationHistory: newAccelerationHistory,
         powerHistory: newPowerHistory,
         driveModeHistory: newDriveModeHistory,
-        ecoScore: state.ecoScore * 0.99 + (100 - Math.abs(physics.acceleration) * 2 - (totalPower_kW > 0 ? totalPower_kW / 10 : 0)) * 0.01,
+        recentWhPerKm,
+        recentWhPerKmWindow,
+        ecoScore: state.ecoScore * 0.999 + (100 - Math.abs(physics.acceleration) * 2 - (totalPower_kW > 0 ? totalPower_kW / 10 : 0)) * 0.001,
         packSOH: Math.max(70, state.packSOH - Math.abs(socChange * 0.00001)),
         equivalentFullCycles: state.equivalentFullCycles + Math.abs(socChange / 100)
     });
@@ -211,17 +214,19 @@ export function useVehicleSimulation() {
         e.preventDefault();
         keys[e.key] = true;
       }
-      if (e.key === 'c') toggleCharging();
+      if (e.key.toLowerCase() === 'c') toggleCharging();
       if (e.key === '1') setDriveMode('Eco');
       if (e.key === '2') setDriveMode('City');
       if (e.key === '3') setDriveMode('Sports');
-      if (e.key === 'a') toggleAC();
+      if (e.key.toLowerCase() === 'a') toggleAC();
+      if (e.key.toLowerCase() === 'r') keys.r = true;
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key in keys) {
         e.preventDefault();
         keys[e.key] = false;
       }
+      if (e.key.toLowerCase() === 'r') keys.r = false;
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -241,7 +246,6 @@ export function useVehicleSimulation() {
 
   const setDriveMode = (mode: DriveMode) => {
     setState({ driveMode: mode });
-    toast({ title: `Switched to ${mode} mode` });
   };
   
   const toggleAC = () => setState({ acOn: !state.acOn });

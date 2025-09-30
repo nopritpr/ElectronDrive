@@ -45,14 +45,15 @@ export default function DashboardTab({
 }: DashboardTabProps) {
 
   const getRange = () => {
-    const baseRange = (state.packSOH / 100) * state.packUsableFraction * state.batteryCapacity_kWh / (state.recentWhPerKm > 0 ? state.recentWhPerKm / 1000 : 180 / 1000) * (state.batterySOC / 100);
-
-    let range = baseRange;
-    if (state.driveMode === 'Eco') range = baseRange * MODE_SETTINGS.Eco.rangeFactor;
-    if (state.driveMode === 'Sports') range = baseRange * MODE_SETTINGS.Sports.rangeFactor;
-    if (state.acOn) range *= 0.9;
-    
-    return range;
+    const consumption = MODE_SETTINGS[state.driveMode].baseConsumption;
+    let acConsumption = 0;
+    if (state.acOn) {
+      acConsumption = 10 + Math.abs(state.outsideTemp - state.acTemp) * 1.5; // Additional Wh/km for AC
+    }
+    const totalConsumption = consumption + acConsumption;
+    const remainingEnergy_kWh = (state.batterySOC / 100) * (state.packNominalCapacity_kWh * state.packUsableFraction) * (state.packSOH / 100);
+    const range = remainingEnergy_kWh / (totalConsumption / 1000);
+    return Math.max(0, range);
   }
 
   return (
@@ -68,7 +69,7 @@ export default function DashboardTab({
                 onClick={() => setDriveMode(mode)}
                 variant={state.driveMode === mode ? 'default' : 'outline'}
                 className={cn("flex-col h-16 transition-all relative",
-                  state.driveMode === mode && 'text-white',
+                  state.driveMode === mode && 'text-primary-foreground',
                   state.driveMode === 'Eco' && mode === 'Eco' && 'bg-green-600 hover:bg-green-700 border-green-600',
                   state.driveMode === 'City' && mode === 'City' && 'bg-blue-600 hover:bg-blue-700 border-blue-600',
                   state.driveMode === 'Sports' && mode === 'Sports' && 'bg-red-600 hover:bg-red-700 border-red-600',
