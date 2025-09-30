@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { VehicleState, DriveMode, VehiclePhysics } from "@/lib/types";
 import { Sun, Wind, Droplets, CloudRain } from "lucide-react";
 import { MODE_SETTINGS } from "@/lib/constants";
+import Map from 'react-map-gl';
 
 interface DashboardTabProps {
   state: VehicleState;
@@ -90,13 +91,15 @@ export default function DashboardTab({
       <Card className="col-span-12 md:col-span-6 row-span-3 md:row-span-6 p-4 flex flex-col">
         <h3 className="font-semibold mb-2 text-sm font-headline">Navigation</h3>
         <div className="flex-1 min-h-0 rounded-md bg-muted overflow-hidden">
-          <Image
-            src="https://picsum.photos/seed/map1/1200/800"
-            alt="Map placeholder"
-            width={1200}
-            height={800}
-            className="w-full h-full object-cover"
-            data-ai-hint="city map"
+        <Map
+            mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_API_KEY}
+            initialViewState={{
+              longitude: -122.4,
+              latitude: 37.8,
+              zoom: 14
+            }}
+            style={{width: '100%', height: '100%'}}
+            mapStyle="mapbox://styles/mapbox/dark-v11"
           />
         </div>
       </Card>

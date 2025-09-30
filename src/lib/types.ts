@@ -28,6 +28,21 @@ export type VehiclePhysics = {
   regenPower: number;
 };
 
+export interface WeatherData {
+  weather: {
+    main: string;
+    icon: string;
+  }[];
+  main: {
+    temp: number;
+    humidity: number;
+  };
+  wind: {
+    speed: number;
+  };
+  name: string;
+}
+
 export interface VehicleState {
   odometer: number;
   tripA: number;
@@ -92,7 +107,7 @@ export interface VehicleState {
   isCharging: boolean;
   profiles: Record<string, Profile>;
   activeProfile: string;
-  weather: any;
+  weather: WeatherData | null;
   sohForecast: { odometer: number; soh: number }[];
   drivingRecommendation: string;
   drivingStyle: string;

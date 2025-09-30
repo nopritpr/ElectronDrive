@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVehicleSimulation } from '@/hooks/use-vehicle-simulation';
 import Header from '@/components/dashboard/header';
 import DashboardTab from '@/components/dashboard/tabs/dashboard-tab';
@@ -9,6 +9,7 @@ import OptimizationTab from '@/components/dashboard/tabs/optimization-tab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import HelpModal from './help-modal';
 import ProfileModal from './profile-modal';
+import type { WeatherData } from '@/lib/types';
 
 export default function Dashboard() {
   const {
@@ -29,6 +30,25 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isHelpModalOpen, setHelpModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=37.8&lon=-122.4&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`);
+        if(response.ok) {
+          const data = await response.json();
+          setWeather(data);
+          setState({ weather: data, outsideTemp: data.main.temp });
+        }
+      } catch (error) {
+        console.error("Failed to fetch weather data", error);
+      }
+    };
+    fetchWeather();
+    const interval = setInterval(fetchWeather, 300000); // every 5 minutes
+    return () => clearInterval(interval);
+  }, [setState]);
 
   const cardProps = {
     state,
@@ -49,6 +69,7 @@ export default function Dashboard() {
         onHelpClick={() => setHelpModalOpen(true)}
         togglePerfMode={togglePerfMode}
         isPerfMode={state.stabilizerEnabled}
+        weather={weather}
       />
       <main className="flex-grow pt-4 overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
