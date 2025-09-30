@@ -103,7 +103,7 @@ export const MODE_SETTINGS: Record<
 > = {
   Eco: {
     maxSpeed: 100,
-    accelRate: 3.5,
+    accelRate: 8,
     decelRate: 2.0,
     brakeRate: 15,
     regenEfficiency: 0.9,
@@ -112,7 +112,7 @@ export const MODE_SETTINGS: Record<
   },
   City: {
     maxSpeed: 120,
-    accelRate: 6.0,
+    accelRate: 12,
     decelRate: 1.5,
     brakeRate: 25,
     regenEfficiency: 0.8,
@@ -121,7 +121,7 @@ export const MODE_SETTINGS: Record<
   },
   Sports: {
     maxSpeed: 160,
-    accelRate: 10.0,
+    accelRate: 20,
     decelRate: 1.0,
     brakeRate: 35,
     regenEfficiency: 0.65,
