@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
-import type { VehicleState, VehiclePhysics, DriveMode, Profile } from '@/lib/types';
+import type { VehicleState, VehiclePhysics, DriveMode, Profile, ChargingLog } from '@/lib/types';
 import { defaultState, EV_CONSTANTS, MODE_SETTINGS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -170,8 +170,9 @@ export function useVehicleSimulation() {
         }
 
         const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
-        socChange = (energyConsumed_kWh / state.packNominalCapacity_kWh) * 100;
-        newSOC -= socChange;
+        const socChange_percent = (energyConsumed_kWh / state.packNominalCapacity_kWh) * 100;
+        newSOC -= socChange_percent;
+        socChange = -socChange_percent;
     }
     
     newSOC = Math.max(0, Math.min(100, newSOC));
@@ -277,12 +278,14 @@ export function useVehicleSimulation() {
       // Stop charging
       const log = state.lastChargeLog;
       const energyAdded = (state.batterySOC - log.startSOC) / 100 * state.packNominalCapacity_kWh;
-      newLogs.push({
-        ...log,
+      const newLog: ChargingLog = {
+        startTime: log.startTime,
         endTime: now,
+        startSOC: log.startSOC,
         endSOC: state.batterySOC,
-        energyAdded,
-      });
+        energyAdded: Math.max(0, energyAdded), // Ensure energy added is not negative
+      };
+      newLogs.push(newLog);
       setState({ 
         isCharging,
         chargingLogs: newLogs.slice(-10), // Keep last 10 logs

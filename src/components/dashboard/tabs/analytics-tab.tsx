@@ -35,7 +35,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
         return [
             (patterns.Morning / total) * 100,
             (patterns.Afternoon / total) * 100,
-            (patterns.Evening / total)- 100,
+            (patterns.Evening / total) * 100,
             (patterns.Night / total) * 100,
             (patterns.Weekend / total) * 100,
         ];
@@ -54,11 +54,11 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                         <p className="text-sm text-muted-foreground text-center py-8">No charging sessions logged.</p>
                     ) : (
                         <div className="space-y-2">
-                           {state.chargingLogs.map((log, index) => (
+                           {state.chargingLogs.slice().reverse().map((log, index) => (
                              <div key={index} className="text-xs p-2 rounded-md bg-muted/50">
                                 <p><strong>{new Date(log.startTime).toLocaleString()}</strong></p>
-                                <p>Duration: {((log.endTime - log.startTime) / 3600000).toFixed(1)} hrs</p>
-                                <p>SOC: {log.startSOC.toFixed(1)}% → {log.endSOC.toFixed(1)}%</p>
+                                <p>Duration: {((log.endTime - log.startTime) / 60000).toFixed(1)} mins</p>
+                                <p>SOC: {log.startSOC.toFixed(1)}% → {log.endSOC.toFixed(1)}% (+{(log.endSOC - log.startSOC).toFixed(1)}%)</p>
                                 <p>Energy: {log.energyAdded.toFixed(2)} kWh</p>
                             </div>
                            ))}
@@ -104,12 +104,9 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                     </ul>
                 </div>
             </Card>
-
             <Card className="p-4 col-span-5 md:col-span-3">
-              <CardHeader className="p-0 mb-1">
-                <CardTitle className="font-semibold text-sm font-headline flex items-center gap-2"><TrendingUp className="w-4 h-4" />Battery & Range</CardTitle>
-              </CardHeader>
               <CardContent className="p-0">
+                 <h4 className="font-semibold text-sm font-headline flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4" />Battery & Range</h4>
                 <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden mb-2">
                     <Progress value={state.batterySOC} className="h-4" />
                     {state.isCharging && <div className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,hsla(0,0%,100%,.1)_25%,transparent_25%)] bg-[length:1rem_1rem] animate-charge-shine" />}
@@ -125,5 +122,4 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
             </Card>
         </div>
     );
-
-    
+}
