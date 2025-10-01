@@ -75,15 +75,24 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
                 position="right"
                 offset={8}
                 formatter={(value: number, entry: any) => {
-                  const numValue = Number(value);
-                  if (numValue === 0 && entry.name !== 'Ideal' && entry.name !== 'Predicted') return '';
-                  
-                  const roundedValue = Math.round(numValue);
-
-                  if (['A/C', 'Temp', 'Drive Mode', 'Load'].includes(entry.name) && roundedValue === 0) {
-                     return numValue < -0.1 ? `${roundedValue} km` : '';
+                  if (!entry) {
+                    return null;
                   }
+                  const numValue = Number(value);
+                  const roundedValue = Math.round(numValue);
                   
+                  // For penalty bars, if the rounded value is 0, show nothing unless the actual value is significantly small
+                  if (['A/C', 'Temp', 'Drive Mode', 'Load'].includes(entry.name)) {
+                    if (roundedValue === 0 && numValue > -0.5) {
+                        return '';
+                    }
+                  }
+
+                  // For non-penalty bars, if value is 0, don't show label (unless it's 'Ideal' or 'Predicted' with a genuine 0 value)
+                  if (numValue === 0 && entry.name !== 'Ideal' && entry.name !== 'Predicted') {
+                    return '';
+                  }
+
                   return `${roundedValue} km`;
                 }}
                 className="fill-foreground font-semibold text-xs"
