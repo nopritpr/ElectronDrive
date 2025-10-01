@@ -296,18 +296,6 @@ export function useVehicleSimulation() {
     // Speed penalty - increases quadratically
     consumptionWhPerKm *= (1 + Math.pow(newSpeedKmh / 100, 2));
 
-    // A/C penalty
-    if (prevState.acOn) {
-      consumptionWhPerKm *= 1.05;
-    }
-    // Passenger penalty
-    consumptionWhPerKm *= (1 + (prevState.passengers - 1) * 0.002);
-    
-    // Goods penalty
-    if (prevState.goodsInBoot) {
-        consumptionWhPerKm *= 1.02;
-    }
-    
     let energyRegeneratedWh = 0;
     if (currentAcceleration < -0.1 && newSpeedKmh > 1) { // Threshold for regen
         const regenPower_W = Math.abs(currentAcceleration * newSpeedKmh * EV_CONSTANTS.regenEfficiency);
@@ -324,18 +312,27 @@ export function useVehicleSimulation() {
     } else {
        // Charge at 1% per second
        newSOC += 1 * timeDelta;
-       newSOC = Math.min(100, newSOC);
     }
-    newSOC = Math.max(0, newSOC);
+    newSOC = Math.max(0, Math.min(100, newSOC));
     
     // --- Range Calculation ---
-    const newWhPerKmWindow = [...prevState.recentWhPerKmWindow, consumptionWhPerKm];
-    if (newWhPerKmWindow.length > 50) newWhPerKmWindow.shift();
-    const smoothedWhPerKm = newWhPerKmWindow.reduce((a, b) => a + b, 0) / newWhPerKmWindow.length;
+    const usableEnergy_kWh = (newSOC / 100) * prevState.packUsableFraction * prevState.packNominalCapacity_kWh;
     
-    const remainingEnergy_kWh = (newSOC / 100) * prevState.packUsableFraction * prevState.packNominalCapacity_kWh;
-    const newRange = smoothedWhPerKm > 10 ? remainingEnergy_kWh / (smoothedWhPerKm / 1000) : prevState.range;
+    // Calculate base consumption for the current mode
+    let modeBaseConsumption = EV_CONSTANTS.baseConsumption;
+    if (prevState.driveMode === 'City') modeBaseConsumption *= EV_CONSTANTS.cityModeConsumptionFactor;
+    if (prevState.driveMode === 'Sports') modeBaseConsumption *= EV_CONSTANTS.sportsModeConsumptionFactor;
 
+    // Apply penalties
+    let penaltyFactor = 1;
+    if (prevState.acOn) penaltyFactor *= 1.05; // 5% penalty
+    if (prevState.goodsInBoot) penaltyFactor *= 1.02; // 2% penalty
+    penaltyFactor *= (1 + (prevState.passengers - 1) * 0.002); // 0.2% per passenger
+
+    const finalConsumption_wh_km = modeBaseConsumption * penaltyFactor;
+
+    const newRange = (usableEnergy_kWh * 1000) / finalConsumption_wh_km;
+    
     const newOdometer = prevState.odometer + distanceTraveledKm;
     
     const instantPower = (netEnergyConsumedWh / 1000) / (timeDelta / 3600);
@@ -348,8 +345,7 @@ export function useVehicleSimulation() {
       power: instantPower,
       batterySOC: newSOC,
       range: newRange,
-      recentWhPerKm: smoothedWhPerKm,
-      recentWhPerKmWindow: newWhPerKmWindow,
+      recentWhPerKm: finalConsumption_wh_km,
       lastUpdate: now,
       displaySpeed: prevState.displaySpeed + (newSpeedKmh - prevState.displaySpeed) * 0.1,
       speedHistory: [newSpeedKmh, ...prevState.speedHistory].slice(0, 100),
