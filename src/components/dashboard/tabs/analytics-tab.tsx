@@ -110,4 +110,3 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
             </Card>
         </div>
     );
-}
