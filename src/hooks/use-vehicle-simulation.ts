@@ -325,13 +325,15 @@ export function useVehicleSimulation() {
     const newRange = smoothedWhPerKm > 10 ? remainingEnergy_kWh / (smoothedWhPerKm / 1000) : prevState.range;
 
     const newOdometer = prevState.odometer + distanceTraveledKm;
+    
+    const instantPower = timeDelta > 0 ? (netEnergyConsumedWh / 1000) / (timeDelta / 3600) : 0;
 
     const newState: Partial<VehicleState> = {
       speed: newSpeedKmh,
       odometer: newOdometer,
       tripA: prevState.activeTrip === 'A' ? prevState.tripA + distanceTraveledKm : prevState.tripA,
       tripB: prevState.activeTrip === 'B' ? prevState.tripB + distanceTraveledKm : prevState.tripB,
-      power: (netEnergyConsumedWh / 1000) / (timeDelta / 3600), // Instantaneous power in kW
+      power: instantPower,
       batterySOC: newSOC,
       range: newRange,
       recentWhPerKm: smoothedWhPerKm,
@@ -340,7 +342,7 @@ export function useVehicleSimulation() {
       displaySpeed: prevState.displaySpeed + (newSpeedKmh - prevState.displaySpeed) * 0.1,
       speedHistory: [newSpeedKmh, ...prevState.speedHistory].slice(0, 100),
       accelerationHistory: [currentAcceleration, ...prevState.accelerationHistory].slice(0, 100),
-      powerHistory: [(netEnergyConsumedWh / 1000), ...prevState.powerHistory].slice(0, 100),
+      powerHistory: [instantPower, ...prevState.powerHistory].slice(0, 100),
       driveModeHistory: [prevState.driveMode, ...prevState.driveModeHistory].slice(0, 50) as DriveMode[],
       ecoScore: prevState.ecoScore * 0.9995 + (100 - Math.abs(currentAcceleration) * 5 - (consumptionWhPerKm > 0 ? (consumptionWhPerKm / 10) : 0)) * 0.0005,
       packSOH: Math.max(70, prevState.packSOH - Math.abs((prevState.batterySOC - newSOC) * 0.000001)),

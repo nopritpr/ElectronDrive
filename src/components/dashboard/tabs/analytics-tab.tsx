@@ -108,8 +108,10 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                 </div>
             </Card>
             <Card className="p-4 col-span-5 md:col-span-3">
-              <CardContent className="p-0">
+              <CardHeader className="p-0">
                  <h4 className="font-semibold text-sm font-headline flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4" />Battery & Range</h4>
+              </CardHeader>
+              <CardContent className="p-0">
                 <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden mb-2">
                     <Progress value={state.batterySOC} className="h-4" />
                     {state.isCharging && <div className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,hsla(0,0%,100%,.1)_25%,transparent_25%)] bg-[length:1rem_1rem] animate-charge-shine" />}

@@ -1,5 +1,5 @@
 'use client';
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -242,31 +242,35 @@ export default function DashboardTab({
         </div>
 
         <Card className="p-4">
-          <h3 className="font-semibold mb-1 text-sm font-headline">Battery & Range</h3>
-           <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden mb-2">
-              <Progress value={state.batterySOC} className="h-4" />
-              {state.isCharging && <div className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,hsla(0,0%,100%,.1)_25%,transparent_25%)] bg-[length:1rem_1rem] animate-charge-shine" />}
-          </div>
-          <div className="flex justify-between items-end mt-1 text-base font-semibold">
-              <span className="text-lg">{state.batterySOC.toFixed(1)}%</span>
-              <div className="text-right">
-                  <span className="font-semibold text-lg">{Math.round(state.range)} km</span>
-                  <p className="text-xs text-primary font-normal flex items-center justify-end gap-1">
-                    AI: {Math.round(state.predictedDynamicRange)} km
-                     <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <HelpCircle className="w-3 h-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs text-xs" side="top" align="end">
-                          <h4 className="font-bold mb-1">Dynamic Range Predictor (Regression Model)</h4>
-                          <p>This prediction uses a regression model to estimate range based on driving style, A/C usage, outside temperature, passengers, and cargo weight.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </p>
-              </div>
-          </div>
+          <CardHeader className="p-0">
+            <h3 className="font-semibold mb-1 text-sm font-headline">Battery & Range</h3>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden mb-2">
+                <Progress value={state.batterySOC} className="h-4" />
+                {state.isCharging && <div className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,hsla(0,0%,100%,.1)_25%,transparent_25%)] bg-[length:1rem_1rem] animate-charge-shine" />}
+            </div>
+            <div className="flex justify-between items-end mt-1 text-base font-semibold">
+                <span className="text-lg">{state.batterySOC.toFixed(1)}%</span>
+                <div className="text-right">
+                    <span className="font-semibold text-lg">{Math.round(state.range)} km</span>
+                    <p className="text-xs text-primary font-normal flex items-center justify-end gap-1">
+                      AI: {Math.round(state.predictedDynamicRange)} km
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <HelpCircle className="w-3 h-3 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-xs" side="top" align="end">
+                            <h4 className="font-bold mb-1">Dynamic Range Predictor (Regression Model)</h4>
+                            <p>This prediction uses a regression model to estimate range based on driving style, A/C usage, outside temperature, passengers, and cargo weight.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </p>
+                </div>
+            </div>
+          </CardContent>
         </Card>
       </div>
     </div>
