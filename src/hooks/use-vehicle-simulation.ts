@@ -284,7 +284,7 @@ export function useVehicleSimulation() {
       }
     }
 
-    const distanceTraveledKm = (newSpeedKmh / 3600) * timeDelta;
+    const distanceTraveledKm = newSpeedKmh * (timeDelta / 3600);
     
     // --- Corrected Energy Consumption ---
     const speed_ms = newSpeedKmh / 3.6;
@@ -428,6 +428,8 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    
 
     
 
