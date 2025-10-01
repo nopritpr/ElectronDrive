@@ -48,7 +48,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
 
     return (
         <div className="h-full grid grid-cols-1 md:grid-cols-3 grid-rows-4 md:grid-rows-2 gap-4 min-h-0">
-            <Card className="col-span-1 md:col-span-1 row-span-2 flex flex-col">
+            <Card className="col-span-1 row-span-2 flex flex-col">
                 <CardHeader>
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><BatteryCharging className="w-4 h-4"/>Charging Log</CardTitle>
                 </CardHeader>
@@ -70,7 +70,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                 </CardContent>
             </Card>
 
-            <Card className="col-span-1 md:col-span-1 row-span-1 flex flex-col">
+            <Card className="col-span-1 row-span-1 flex flex-col">
                 <CardHeader>
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><Zap className="w-4 h-4"/>Charging Habit</CardTitle>
                     <p className="text-xs text-muted-foreground -mt-2">Clustering model analysis.</p>
@@ -80,7 +80,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                 </CardContent>
             </Card>
 
-            <div className="col-span-1 md:col-span-1 row-span-1 flex flex-col gap-4">
+            <div className="col-span-1 row-span-1 flex flex-col gap-4">
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-sm font-headline flex items-center gap-2"><span className="font-bold text-base">₹</span>Cost Savings</CardTitle>
