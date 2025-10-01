@@ -275,7 +275,7 @@ export function useVehicleSimulation() {
     let estimatedRange = 0;
     const remainingEnergy_kWh = (newSOC / 100) * (prevState.packNominalCapacity_kWh * prevState.packUsableFraction) * (prevState.packSOH / 100);
     
-    let consumption = smoothedWhPerKm > 0 ? smoothedWhPerKm : modeSettings.baseConsumption;
+    let consumption = newState.recentWhPerKm > 0 ? newState.recentWhPerKm : modeSettings.baseConsumption;
 
     estimatedRange = remainingEnergy_kWh / (consumption / 1000);
     newState.range = Math.max(0, isFinite(estimatedRange) ? estimatedRange : 0);
