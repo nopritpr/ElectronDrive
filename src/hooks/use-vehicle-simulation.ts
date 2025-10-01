@@ -260,7 +260,6 @@ export function useVehicleSimulation() {
     } else if (keys.r) {
       targetAcceleration = -modeSettings.strongRegenBrakeRate;
     } else if (prevState.speed > 0) {
-      // Gentle deceleration (one-pedal driving feel)
       targetAcceleration = -EV_CONSTANTS.gentleRegenBrakeRate;
     }
 
@@ -279,7 +278,7 @@ export function useVehicleSimulation() {
     if (prevState.driveMode === 'City') consumptionWhPerKm *= 1.15;
     if (prevState.driveMode === 'Sports') consumptionWhPerKm *= 1.30;
     
-    consumptionWhPerKm *= (1 + Math.pow(newSpeedKmh / 80, 2));
+    consumptionWhPerKm *= (1 + (newSpeedKmh / 100)); // Simplified speed penalty
 
     const weightPenalty = ((prevState.passengers - 1) * 0.05) + (prevState.goodsInBoot ? 0.08 : 0);
     consumptionWhPerKm *= (1 + weightPenalty);
