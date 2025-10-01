@@ -306,10 +306,8 @@ export function useVehicleSimulation() {
     const aeroDragForce = 0.5 * EV_CONSTANTS.airDensity * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.dragCoeff * Math.pow(speed_mps, 2);
     const rollingResistanceForce = EV_CONSTANTS.rollingResistanceCoeff * totalWeight_kg * EV_CONSTANTS.gravity;
     
-    // Power to overcome resistance forces
     const resistancePower_kW = (aeroDragForce + rollingResistanceForce) * speed_mps / 1000;
 
-    // Power for acceleration
     const acceleration_mps2 = physics.acceleration / 3.6;
     const accelerationPower_kW = (totalWeight_kg * acceleration_mps2 * speed_mps) / 1000;
 
@@ -348,22 +346,37 @@ export function useVehicleSimulation() {
 
     newState.power = totalPower_kW;
 
-    // --- Start: Stable Wh/km and Range Calculation ---
-    let currentWhPerKm;
+    // --- START: STABLE EFFICIENCY & RANGE CALCULATION (REWORKED) ---
+    const currentWindow = [...prevState.recentWhPerKmWindow];
     if (newSpeed > 1 && totalPower_kW > 0) {
-        currentWhPerKm = (totalPower_kW * 1000) / newSpeed;
-    } else {
-        currentWhPerKm = prevState.recentWhPerKm;
+        const currentWhPerKm = (totalPower_kW * 1000) / newSpeed;
+        if (isFinite(currentWhPerKm)) {
+            currentWindow.push(currentWhPerKm);
+            if (currentWindow.length > 50) currentWindow.shift();
+        }
     }
+    newState.recentWhPerKmWindow = currentWindow;
     
-    const smoothingFactor = 0.05; // Lower factor = more smoothing
-    const smoothedWhPerKm = (prevState.recentWhPerKm * (1 - smoothingFactor)) + (currentWhPerKm * smoothingFactor);
-    newState.recentWhPerKm = isFinite(smoothedWhPerKm) ? Math.max(50, smoothedWhPerKm) : modeSettings.baseConsumption;
+    // Use a weighted average for more stability
+    const weightedAvg = currentWindow.reduce((acc, val, idx) => {
+        const weight = (idx + 1) / currentWindow.length;
+        return acc + val * weight;
+    }, 0);
+    const totalWeight = currentWindow.reduce((acc, val, idx) => acc + (idx + 1) / currentWindow.length, 0);
+
+    const smoothedWhPerKm = totalWeight > 0 ? weightedAvg / totalWeight : modeSettings.baseConsumption;
+
+    newState.recentWhPerKm = isFinite(smoothedWhPerKm) ? Math.max(50, smoothedWhPerKm) : prevState.recentWhPerKm;
 
     const remainingEnergy_kWh = (newSOC / 100) * (prevState.packNominalCapacity_kWh * prevState.packUsableFraction) * (prevState.packSOH / 100);
     const estimatedRange = remainingEnergy_kWh / (newState.recentWhPerKm / 1000);
-    newState.range = Math.max(0, isFinite(estimatedRange) ? estimatedRange : prevState.range);
-    // --- End: Stable Wh/km and Range Calculation ---
+    
+    const rangeSmoothingFactor = 0.1;
+    const newSmoothedRange = prevState.range * (1 - rangeSmoothingFactor) + estimatedRange * rangeSmoothingFactor;
+    
+    newState.range = Math.max(0, isFinite(newSmoothedRange) ? newSmoothedRange : prevState.range);
+    // --- END: STABLE EFFICIENCY & RANGE CALCULATION ---
+
 
     // --- SOH History Update ---
     newState.sohHistory = prevState.sohHistory;
