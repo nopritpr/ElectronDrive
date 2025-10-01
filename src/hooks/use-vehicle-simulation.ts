@@ -258,7 +258,21 @@ export function useVehicleSimulation() {
     setState({ driveMode: mode });
   };
   
-  const toggleAC = () => setState({ acOn: !state.acOn });
+  const toggleAC = () => {
+    const newAcOn = !state.acOn;
+    let newRange = state.range;
+
+    if (newAcOn) {
+      newRange *= 0.9;
+    } else {
+      const remainingEnergy_kWh = (state.batterySOC / 100) * (state.packNominalCapacity_kWh * state.packUsableFraction) * (state.packSOH / 100);
+      const consumption_kWh_per_km = (MODE_SETTINGS[state.driveMode].baseConsumption / 1000);
+      newRange = remainingEnergy_kWh / consumption_kWh_per_km;
+    }
+
+    setState({ acOn: newAcOn, range: newRange });
+  };
+
   const setAcTemp = (temp: number) => setState({ acTemp: temp });
   const toggleCharging = () => {
     if (state.speed > 0 && !state.isCharging) {
