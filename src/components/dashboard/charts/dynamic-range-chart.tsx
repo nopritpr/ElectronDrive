@@ -8,7 +8,6 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import type { VehicleState } from '@/lib/types';
-import { MODE_SETTINGS } from '@/lib/constants';
 
 interface DynamicRangeChartProps {
   state: VehicleState;
@@ -19,21 +18,23 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
     const predictedRange = state.predictedDynamicRange;
     const totalPenalty = Math.max(0, idealRange - predictedRange);
 
+    const weights = {
+      ac: state.acOn ? 0.3 : 0,
+      temp: Math.abs(22 - state.outsideTemp) > 5 ? 0.2 : 0,
+      driveMode: state.driveMode !== 'Eco' ? 0.4 : 0,
+      load: (state.passengers > 1 || state.goodsInBoot) ? 0.1 : 0,
+    };
+
+    const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+
     const penalties = {
-      ac: state.acOn ? totalPenalty * 0.3 : 0,
-      temp: Math.abs(22 - state.outsideTemp) > 5 ? totalPenalty * 0.2 : 0,
-      driveMode: state.driveMode !== 'Eco' ? totalPenalty * 0.4 : 0,
-      load: (state.passengers > 1 || state.goodsInBoot) ? totalPenalty * 0.1 : 0,
+        ac: totalWeight > 0 ? (weights.ac / totalWeight) * totalPenalty : 0,
+        temp: totalWeight > 0 ? (weights.temp / totalWeight) * totalPenalty : 0,
+        driveMode: totalWeight > 0 ? (weights.driveMode / totalWeight) * totalPenalty : 0,
+        load: totalWeight > 0 ? (weights.load / totalWeight) * totalPenalty : 0,
     };
     
-    // Normalize penalties so they sum up to the total penalty
-    const appliedPenaltySum = Object.values(penalties).reduce((sum, p) => sum + p, 0);
-    if (appliedPenaltySum > 0) {
-      const scale = totalPenalty / appliedPenaltySum;
-      for (const key in penalties) {
-        (penalties as any)[key] *= scale;
-      }
-    }
+    const remainingIdeal = idealRange - penalties.ac - penalties.temp - penalties.driveMode - penalties.load;
     
     const data = [
         { name: 'Ideal', value: idealRange, fill: 'hsl(var(--chart-2))' },
