@@ -17,30 +17,30 @@ interface DynamicRangeChartProps {
 export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
     const idealRange = state.initialRange * (state.batterySOC / 100);
     const predictedRange = state.predictedDynamicRange;
-    const totalPenalty = idealRange > predictedRange ? idealRange - predictedRange : 0;
+    const totalPenalty = Math.max(0, idealRange - predictedRange);
 
-    // Apportion the total penalty based on which factors are active
-    const activePenalties: (keyof typeof rangePenalties)[] = [];
-    if (state.acOn) activePenalties.push('ac');
-    if (Math.abs(22 - state.outsideTemp) > 2) activePenalties.push('temp');
-    if (state.driveMode !== 'Eco') activePenalties.push('driveMode');
-    if (state.passengers > 1 || state.goodsInBoot) activePenalties.push('load');
-
-    const penaltyShare = activePenalties.length > 0 ? totalPenalty / activePenalties.length : 0;
-
-    const rangePenalties = {
-        ac: activePenalties.includes('ac') ? penaltyShare : 0,
-        temp: activePenalties.includes('temp') ? penaltyShare : 0,
-        driveMode: activePenalties.includes('driveMode') ? penaltyShare : 0,
-        load: activePenalties.includes('load') ? penaltyShare : 0,
+    const penalties = {
+      ac: state.acOn ? totalPenalty * 0.3 : 0,
+      temp: Math.abs(22 - state.outsideTemp) > 5 ? totalPenalty * 0.2 : 0,
+      driveMode: state.driveMode !== 'Eco' ? totalPenalty * 0.4 : 0,
+      load: (state.passengers > 1 || state.goodsInBoot) ? totalPenalty * 0.1 : 0,
     };
-
+    
+    // Normalize penalties so they sum up to the total penalty
+    const appliedPenaltySum = Object.values(penalties).reduce((sum, p) => sum + p, 0);
+    if (appliedPenaltySum > 0) {
+      const scale = totalPenalty / appliedPenaltySum;
+      for (const key in penalties) {
+        (penalties as any)[key] *= scale;
+      }
+    }
+    
     const data = [
         { name: 'Ideal', value: idealRange, fill: 'hsl(var(--chart-2))' },
-        { name: 'A/C', value: -rangePenalties.ac, fill: 'hsl(var(--chart-5))' },
-        { name: 'Temp', value: -rangePenalties.temp, fill: 'hsl(var(--chart-5))' },
-        { name: 'Drive Mode', value: -rangePenalties.driveMode, fill: 'hsl(var(--chart-5))' },
-        { name: 'Load', value: -rangePenalties.load, fill: 'hsl(var(--chart-5))' },
+        { name: 'A/C', value: -penalties.ac, fill: 'hsl(var(--chart-5))' },
+        { name: 'Temp', value: -penalties.temp, fill: 'hsl(var(--chart-5))' },
+        { name: 'Drive Mode', value: -penalties.driveMode, fill: 'hsl(var(--chart-5))' },
+        { name: 'Load', value: -penalties.load, fill: 'hsl(var(--chart-5))' },
         { name: 'Predicted', value: predictedRange, fill: 'hsl(var(--primary))' },
     ];
 
