@@ -37,41 +37,44 @@ export function useVehicleSimulation() {
       return;
     }
     try {
+      // Create a stable copy of the state for this async operation
+      const currentState = { ...state };
+
       const [rec, style, range, soh] = await Promise.all([
         getDrivingRecommendation({
-          drivingStyle: state.drivingStyle,
-          predictedRange: state.predictedDynamicRange,
-          batterySOC: state.batterySOC,
-          acUsage: state.acOn,
-          driveMode: state.driveMode,
-          outsideTemperature: state.outsideTemp,
+          drivingStyle: currentState.drivingStyle,
+          predictedRange: currentState.predictedDynamicRange,
+          batterySOC: currentState.batterySOC,
+          acUsage: currentState.acOn,
+          driveMode: currentState.driveMode,
+          outsideTemperature: currentState.outsideTemp,
         }),
         analyzeDrivingStyle({
-          speedHistory: state.speedHistory,
-          accelerationHistory: state.accelerationHistory,
-          driveModeHistory: state.driveModeHistory as string[],
-          ecoScore: state.ecoScore,
+          speedHistory: currentState.speedHistory,
+          accelerationHistory: currentState.accelerationHistory,
+          driveModeHistory: currentState.driveModeHistory as string[],
+          ecoScore: currentState.ecoScore,
         }),
         predictRange({
-          drivingStyle: state.drivingStyle,
+          drivingStyle: currentState.drivingStyle,
           climateControlSettings: {
-            acUsage: state.acOn ? 100 : 0,
-            temperatureSetting: state.acTemp,
+            acUsage: currentState.acOn ? 100 : 0,
+            temperatureSetting: currentState.acTemp,
           },
           weatherData: {
-            temperature: state.weather?.main.temp || 25,
-            precipitation: state.weather?.weather[0].main.toLowerCase() || 'sunny',
-            windSpeed: state.weather?.wind.speed ? state.weather.wind.speed * 3.6 : 15,
+            temperature: currentState.weather?.main.temp || 25,
+            precipitation: currentState.weather?.weather[0].main.toLowerCase() || 'sunny',
+            windSpeed: currentState.weather?.wind.speed ? currentState.weather.wind.speed * 3.6 : 15,
           },
-          historicalData: state.speedHistory.map((s, i) => ({
+          historicalData: currentState.speedHistory.map((s, i) => ({
             speed: s,
-            powerConsumption: state.powerHistory[i] || 0,
+            powerConsumption: currentState.powerHistory[i] || 0,
           })),
-          batteryCapacity: state.batteryCapacity_kWh,
-          currentBatteryLevel: state.batterySOC,
+          batteryCapacity: currentState.batteryCapacity_kWh,
+          currentBatteryLevel: currentState.batterySOC,
         }),
         forecastSoh({
-          historicalData: state.sohHistory.map(h => ({...h, ecoPercent: 0, cityPercent: 0, sportsPercent: 0})),
+          historicalData: currentState.sohHistory.map(h => ({...h, ecoPercent: 0, cityPercent: 0, sportsPercent: 0})),
         }),
       ]);
 
@@ -86,135 +89,140 @@ export function useVehicleSimulation() {
     } catch (error) {
       console.error('AI Flow error:', error);
     }
-  }, [state.drivingStyle, state.predictedDynamicRange, state.batterySOC, state.acOn, state.driveMode, state.outsideTemp, state.speedHistory, state.accelerationHistory, state.driveModeHistory, state.ecoScore, state.acTemp, state.powerHistory, state.batteryCapacity_kWh, state.sohHistory, state.weather]);
+  }, [state.batterySOC, state.acOn, state.acTemp, state.batteryCapacity_kWh, state.accelerationHistory, state.driveMode, state.driveModeHistory, state.drivingStyle, state.ecoScore, state.outsideTemp, state.powerHistory, state.predictedDynamicRange, state.sohHistory, state.speedHistory, state.weather]);
 
 
+  const calculateRange = useCallback((currentState: VehicleState) => {
+    const modeSettings = MODE_SETTINGS[currentState.driveMode];
+    let consumption = currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : modeSettings.baseConsumption;
+    
+    // Add AC consumption
+    if (currentState.acOn) {
+        // Base 10% penalty
+        consumption *= 1.10;
+        // Add penalty for temperature difference
+        const tempDiff = Math.abs(currentState.outsideTemp - currentState.acTemp);
+        consumption += tempDiff * 2; // Add 2 Wh/km for every degree of difference
+    }
+
+    const remainingEnergy_kWh = (currentState.batterySOC / 100) * (currentState.packNominalCapacity_kWh * currentState.packUsableFraction) * (currentState.packSOH / 100);
+    const estimatedRange = remainingEnergy_kWh / (consumption / 1000);
+    
+    return Math.max(0, isFinite(estimatedRange) ? estimatedRange : 0);
+  }, []);
+  
   const updateVehicleState = useCallback(() => {
-    const now = Date.now();
-    const timeDelta = (now - state.lastUpdate) / 1000;
-    if (timeDelta <= 0) {
-        requestAnimationFrame(updateVehicleState);
-        return;
-    }
+    setState(prevState => {
+        const now = Date.now();
+        const timeDelta = (now - prevState.lastUpdate) / 1000;
+        if (timeDelta <= 0) return prevState;
 
-    let newState: Partial<VehicleState> = { lastUpdate: now };
-    const physics = physicsRef.current;
-    const modeSettings = MODE_SETTINGS[state.driveMode];
+        let newState: Partial<VehicleState> = { lastUpdate: now };
+        const physics = physicsRef.current;
+        const modeSettings = MODE_SETTINGS[prevState.driveMode];
 
-    // --- Acceleration & Speed ---
-    let targetAcceleration = 0;
-    if (keys.ArrowUp) {
-      targetAcceleration = modeSettings.accelRate;
-      physics.brakingApplied = false;
-      physics.regenActive = false;
-    } else if (keys.ArrowDown) {
-      targetAcceleration = -modeSettings.brakeRate;
-      physics.brakingApplied = true;
-      physics.regenActive = false;
-    } else {
-      // Natural deceleration (inertia + regen)
-      physics.brakingApplied = false;
-      targetAcceleration = -modeSettings.decelRate;
-      physics.regenActive = true;
-    }
-
-    if (keys.r) { // Stronger regen
-        targetAcceleration -= 10;
-        physics.regenActive = true;
-    }
-
-    physics.acceleration += (targetAcceleration - physics.acceleration) * 0.1;
-    
-    let newSpeed = state.speed + physics.acceleration * timeDelta;
-    newSpeed *= physics.inertiaFactor;
-    newSpeed = Math.max(0, Math.min(modeSettings.maxSpeed, newSpeed));
-
-    // --- Odometer & Trip ---
-    const distanceTraveled = (newSpeed * timeDelta) / 3600;
-    newState.odometer = (state.odometer || 0) + distanceTraveled;
-    if(state.activeTrip === 'A') {
-        newState.tripA = (state.tripA || 0) + distanceTraveled;
-    } else {
-        newState.tripB = (state.tripB || 0) + distanceTraveled;
-    }
-
-    // --- Power & Battery ---
-    const speed_mps = newSpeed / 3.6;
-    const aeroDrag = 0.5 * EV_CONSTANTS.airDensity * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.dragCoeff * Math.pow(speed_mps, 2);
-    const rollingResistance = EV_CONSTANTS.rollingResistanceCoeff * EV_CONSTANTS.mass_kg * EV_CONSTANTS.gravity;
-    const accelerationForce = EV_CONSTANTS.mass_kg * physics.acceleration;
-    const motorForce = aeroDrag + rollingResistance + accelerationForce;
-    
-    let motorPower_kW = (motorForce * speed_mps) / 1000;
-
-    let acPower_kW = state.acOn ? 0.5 + Math.abs(state.outsideTemp - state.acTemp) * 0.1 : 0;
-    let accessoryPower_kW = EV_CONSTANTS.accessoryBase_kW;
-
-    let totalPower_kW = 0;
-    let newSOC = state.batterySOC;
-
-    if (state.isCharging) {
-        const chargeSocPerSecond = 1.0;
-        const socChange = chargeSocPerSecond * timeDelta;
-        newSOC += socChange;
-        totalPower_kW = -EV_CONSTANTS.chargeRate_kW;
-    } else {
-        if (physics.regenActive && motorPower_kW < 0) {
-            physics.regenPower = Math.min(EV_CONSTANTS.maxRegenPower_kW, Math.abs(motorPower_kW)) * modeSettings.regenEfficiency;
-            totalPower_kW = -physics.regenPower;
+        // --- Acceleration & Speed ---
+        let targetAcceleration = 0;
+        if (keys.ArrowUp) {
+        targetAcceleration = modeSettings.accelRate;
+        physics.brakingApplied = false;
+        physics.regenActive = false;
+        } else if (keys.ArrowDown) {
+        targetAcceleration = -modeSettings.brakeRate;
+        physics.brakingApplied = true;
+        physics.regenActive = false;
         } else {
-            motorPower_kW = Math.max(0, motorPower_kW); // Power can't be negative if not regenerating
-            physics.regenPower = 0;
-            let drivingPower = (motorPower_kW / modeSettings.powerFactor) / EV_CONSTANTS.drivetrainEfficiency;
-            totalPower_kW = drivingPower + acPower_kW + accessoryPower_kW;
+        physics.brakingApplied = false;
+        targetAcceleration = -modeSettings.decelRate;
+        physics.regenActive = true;
+        }
+
+        if (keys.r) {
+            targetAcceleration -= 10;
+            physics.regenActive = true;
+        }
+
+        physics.acceleration += (targetAcceleration - physics.acceleration) * 0.1;
+        
+        let newSpeed = prevState.speed + physics.acceleration * timeDelta;
+        newSpeed *= physics.inertiaFactor;
+        newSpeed = Math.max(0, Math.min(modeSettings.maxSpeed, newSpeed));
+        newState.speed = newSpeed;
+
+        // --- Odometer & Trip ---
+        const distanceTraveled = (newSpeed * timeDelta) / 3600;
+        newState.odometer = (prevState.odometer || 0) + distanceTraveled;
+        if(prevState.activeTrip === 'A') {
+            newState.tripA = (prevState.tripA || 0) + distanceTraveled;
+        } else {
+            newState.tripB = (prevState.tripB || 0) + distanceTraveled;
+        }
+
+        // --- Power & Battery ---
+        const speed_mps = newSpeed / 3.6;
+        const aeroDrag = 0.5 * EV_CONSTANTS.airDensity * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.dragCoeff * Math.pow(speed_mps, 2);
+        const rollingResistance = EV_CONSTANTS.rollingResistanceCoeff * EV_CONSTANTS.mass_kg * EV_CONSTANTS.gravity;
+        const accelerationForce = EV_CONSTANTS.mass_kg * physics.acceleration;
+        const motorForce = aeroDrag + rollingResistance + accelerationForce;
+        
+        let motorPower_kW = (motorForce * speed_mps) / 1000;
+        let acPower_kW = prevState.acOn ? 0.5 + Math.abs(prevState.outsideTemp - prevState.acTemp) * 0.1 : 0;
+        let accessoryPower_kW = EV_CONSTANTS.accessoryBase_kW;
+
+        let totalPower_kW = 0;
+        let newSOC = prevState.batterySOC;
+
+        if (prevState.isCharging) {
+            const chargeSocPerSecond = 1.0;
+            const socChange = chargeSocPerSecond * timeDelta;
+            newSOC += socChange;
+            totalPower_kW = -EV_CONSTANTS.chargeRate_kW;
+        } else {
+            if (physics.regenActive && motorPower_kW < 0) {
+                physics.regenPower = Math.min(EV_CONSTANTS.maxRegenPower_kW, Math.abs(motorPower_kW)) * modeSettings.regenEfficiency;
+                totalPower_kW = -physics.regenPower;
+            } else {
+                motorPower_kW = Math.max(0, motorPower_kW);
+                physics.regenPower = 0;
+                let drivingPower = (motorPower_kW / modeSettings.powerFactor) / EV_CONSTANTS.drivetrainEfficiency;
+                totalPower_kW = drivingPower + acPower_kW + accessoryPower_kW;
+            }
+             totalPower_kW = Math.max(accessoryPower_kW, totalPower_kW);
+            
+            const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
+            const socChange_percent = (energyConsumed_kWh / prevState.packNominalCapacity_kWh) * 100;
+            newSOC -= socChange_percent;
         }
         
-        const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
-        const socChange_percent = (energyConsumed_kWh / state.packNominalCapacity_kWh) * 100;
-        newSOC -= socChange_percent;
-    }
-    
-    newSOC = Math.max(0, Math.min(100, newSOC));
-    const socChange = newSOC - state.batterySOC;
-    newState.batterySOC = newSOC;
-    
-    // --- History & Other Metrics ---
-    const newSpeedHistory = [newSpeed, ...state.speedHistory].slice(0, 50);
-    const newAccelerationHistory = [physics.acceleration, ...state.accelerationHistory].slice(0, 50);
-    const newPowerHistory = [totalPower_kW, ...state.powerHistory].slice(0,50);
-    const newDriveModeHistory = [state.driveMode, ...state.driveModeHistory].slice(0, 50);
-    
-    const powerForConsumption = Math.max(0, totalPower_kW);
-    const currentWhPerKm = newSpeed > 1 ? (powerForConsumption * 1000) / newSpeed : 0;
-    
-    // Ensure Wh/km doesn't become excessively low or high
-    const smoothedWhPerKm = state.recentWhPerKm > 0 ? (state.recentWhPerKm * 49 + (currentWhPerKm > 0 ? currentWhPerKm : state.recentWhPerKm)) / 50 : modeSettings.baseConsumption;
-    const newRecentWhPerKm = Math.max(50, Math.min(500, smoothedWhPerKm));
+        newSOC = Math.max(0, Math.min(100, newSOC));
+        const socChange = newSOC - prevState.batterySOC;
+        newState.batterySOC = newSOC;
+        
+        // --- History & Other Metrics ---
+        newState.power = totalPower_kW;
+        const powerForConsumption = Math.max(0, totalPower_kW);
+        const currentWhPerKm = newSpeed > 1 ? (powerForConsumption * 1000) / newSpeed : 0;
+        
+        const smoothedWhPerKm = prevState.recentWhPerKm > 0 ? (prevState.recentWhPerKm * 49 + (currentWhPerKm > 0 ? currentWhPerKm : prevState.recentWhPerKm)) / 50 : modeSettings.baseConsumption;
+        newState.recentWhPerKm = Math.max(50, Math.min(500, smoothedWhPerKm));
 
-    // --- Range Calculation ---
-    const remainingEnergy_kWh = (newSOC / 100) * (state.packNominalCapacity_kWh * state.packUsableFraction) * (state.packSOH / 100);
-    const consumption_kWh_per_km = newRecentWhPerKm / 1000;
-    const estimatedRange = remainingEnergy_kWh / consumption_kWh_per_km;
-    newState.range = Math.max(0, isFinite(estimatedRange) ? estimatedRange : state.range);
+        const finalState = {...prevState, ...newState};
+        newState.range = calculateRange(finalState);
 
-
-    setState({
-        ...newState,
-        speed: newSpeed,
-        power: totalPower_kW,
-        displaySpeed: state.displaySpeed + (newSpeed - state.displaySpeed) * 0.1,
-        speedHistory: newSpeedHistory,
-        accelerationHistory: newAccelerationHistory,
-        powerHistory: newPowerHistory,
-        driveModeHistory: newDriveModeHistory,
-        recentWhPerKm: newRecentWhPerKm,
-        ecoScore: state.ecoScore * 0.999 + (100 - Math.abs(physics.acceleration) * 2 - (totalPower_kW > 0 ? totalPower_kW / 10 : 0)) * 0.001,
-        packSOH: Math.max(70, state.packSOH - Math.abs(socChange * 0.00001)),
-        equivalentFullCycles: state.equivalentFullCycles + Math.abs((state.batterySOC - newSOC) / 100)
+        return {
+            ...finalState,
+            displaySpeed: prevState.displaySpeed + (newSpeed - prevState.displaySpeed) * 0.1,
+            speedHistory: [newSpeed, ...prevState.speedHistory].slice(0, 50),
+            accelerationHistory: [physics.acceleration, ...prevState.accelerationHistory].slice(0, 50),
+            powerHistory: [totalPower_kW, ...prevState.powerHistory].slice(0,50),
+            driveModeHistory: [prevState.driveMode, ...prevState.driveModeHistory].slice(0, 50) as DriveMode[],
+            ecoScore: prevState.ecoScore * 0.999 + (100 - Math.abs(physics.acceleration) * 2 - (totalPower_kW > 0 ? totalPower_kW / 10 : 0)) * 0.001,
+            packSOH: Math.max(70, prevState.packSOH - Math.abs(socChange * 0.00001)),
+            equivalentFullCycles: prevState.equivalentFullCycles + Math.abs((prevState.batterySOC - newSOC) / 100),
+        };
     });
-
     requestAnimationFrame(updateVehicleState);
-  }, [state, setState]);
+  }, [calculateRange]);
 
 
   useEffect(() => {
@@ -254,34 +262,26 @@ export function useVehicleSimulation() {
   }, [callAI]);
 
   const setDriveMode = (mode: DriveMode) => {
-    setState({ driveMode: mode });
+    setState(prevState => {
+        const newState = {...prevState, driveMode: mode, recentWhPerKm: MODE_SETTINGS[mode].baseConsumption };
+        return { ...newState, range: calculateRange(newState) };
+    });
   };
   
   const toggleAC = () => {
-      const isAcOn = !state.acOn;
-      const consumption_kWh_per_km = state.recentWhPerKm / 1000;
-      const remainingEnergy_kWh = (state.batterySOC / 100) * state.packUsableFraction * state.batteryCapacity_kWh;
-      const acPowerDraw_kW = 1.0; // Simplified average A/C power draw
-      const rangeLostPerHour_km = acPowerDraw_kW / consumption_kWh_per_km;
-      
-      let currentRange = state.range;
-
-      if (isAcOn) {
-          // Simplified: Assume AC on for an hour, what is the impact? 
-          // A better way is to adjust base consumption, which is what we do now in the main loop.
-          // This immediate adjustment is for UX feedback.
-          const rangeDrop = state.range * 0.10; // 10% drop
-          currentRange = Math.max(0, state.range - rangeDrop);
-      } else {
-          // Re-calculate based on no AC. The main loop will handle this, but we can give an instant boost.
-          const rangeGain = state.range / 0.90 - state.range;
-          currentRange = state.range + rangeGain;
-      }
-
-      setState(prevState => ({ acOn: !prevState.acOn, range: currentRange }));
+     setState(prevState => {
+        const newState = {...prevState, acOn: !prevState.acOn };
+        return { ...newState, range: calculateRange(newState) };
+    });
   };
 
-  const setAcTemp = (temp: number) => setState({ acTemp: temp });
+  const setAcTemp = (temp: number) => {
+    setState(prevState => {
+        const newState = {...prevState, acTemp: temp};
+        return { ...newState, range: calculateRange(newState) };
+    });
+  }
+
   const toggleCharging = () => {
     if (state.speed > 0 && !state.isCharging) {
         toast({

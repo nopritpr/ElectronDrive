@@ -41,7 +41,7 @@ export const defaultState: VehicleState = {
   regenEfficiencyDynamic: 0.85,
   thermalThrottleFactor: 1.0,
   regenLimitFactor: 1.0,
-  recentWhPerKm: 111,
+  recentWhPerKm: 102.2,
   recentWhPerKmWindow: [],
   styleMetrics: {
     aggression: 0,
@@ -109,7 +109,7 @@ export const MODE_SETTINGS: Record<
     brakeRate: 15,
     regenEfficiency: 0.9,
     powerFactor: 1.2,
-    baseConsumption: 111, // Wh/km to achieve ~450km range on 50kWh
+    baseConsumption: 102.2, // 46000Wh / 450km = 102.2 Wh/km
   },
   City: {
     maxSpeed: 75,
@@ -118,7 +118,7 @@ export const MODE_SETTINGS: Record<
     brakeRate: 25,
     regenEfficiency: 0.8,
     powerFactor: 1.0,
-    baseConsumption: 119, // Wh/km to achieve ~420km range
+    baseConsumption: 109.5, // 46000Wh / 420km = 109.5 Wh/km
   },
   Sports: {
     maxSpeed: 120,
@@ -127,6 +127,6 @@ export const MODE_SETTINGS: Record<
     brakeRate: 35,
     regenEfficiency: 0.65,
     powerFactor: 0.8,
-    baseConsumption: 125, // Wh/km to achieve ~400km range
+    baseConsumption: 115, // 46000Wh / 400km = 115 Wh/km
   },
 };
