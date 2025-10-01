@@ -188,7 +188,6 @@ export function useVehicleSimulation() {
       return;
     }
 
-
     let newState: Partial<VehicleState> = {};
     const physics = physicsRef.current;
     const modeSettings = MODE_SETTINGS[prevState.driveMode];
@@ -235,8 +234,9 @@ export function useVehicleSimulation() {
     const drivingForce = aeroDragForce + rollingResistanceForce;
     const drivingPower_kW = (drivingForce * speed_mps) / 1000;
     let motorPower_kW = (drivingPower_kW / EV_CONSTANTS.drivetrainEfficiency);
-
-    let accelerationPower_kW = (EV_CONSTANTS.mass_kg * physics.acceleration * speed_mps) / 1000;
+    
+    const acceleration_mps2 = physics.acceleration / 3.6;
+    let accelerationPower_kW = (EV_CONSTANTS.mass_kg * acceleration_mps2 * speed_mps) / 1000;
     
     let acPower_kW = prevState.acOn ? 0.5 + Math.abs(prevState.outsideTemp - prevState.acTemp) * 0.1 : 0;
     let accessoryPower_kW = EV_CONSTANTS.accessoryBase_kW;
@@ -270,22 +270,12 @@ export function useVehicleSimulation() {
     
     newState.power = totalPower_kW;
 
-    // More stable Wh/km calculation
-    const powerForConsumption = Math.max(0, totalPower_kW);
-    const currentWhPerKm = newSpeed > 1 ? (powerForConsumption * 1000) / newSpeed : 0;
-    
-    // Use a window for smoothing
-    const newWindow = [...prevState.recentWhPerKmWindow, currentWhPerKm].slice(-20); // Average over last 20 frames
-    newState.recentWhPerKmWindow = newWindow;
-    const avgWhPerKm = newWindow.reduce((a, b) => a + b, 0) / newWindow.length;
-    
-    const smoothedWhPerKm = newWindow.length < 20 
-        ? modeSettings.baseConsumption 
-        : avgWhPerKm;
+    const currentWhPerKm = newSpeed > 1 ? (Math.max(0, totalPower_kW) * 1000) / newSpeed : 0;
 
-    newState.recentWhPerKm = Math.max(50, Math.min(500, smoothedWhPerKm));
-
-    // Range calculation based on smoothed efficiency
+    const smoothingFactor = 0.05;
+    const smoothedWhPerKm = (prevState.recentWhPerKm * (1 - smoothingFactor)) + (currentWhPerKm * smoothingFactor);
+    newState.recentWhPerKm = isFinite(smoothedWhPerKm) ? Math.max(50, Math.min(500, smoothedWhPerKm)) : modeSettings.baseConsumption;
+    
     const remainingEnergy_kWh = (newSOC / 100) * (prevState.packNominalCapacity_kWh * prevState.packUsableFraction) * (prevState.packSOH / 100);
     const consumption = newState.recentWhPerKm > 0 ? newState.recentWhPerKm : modeSettings.baseConsumption;
     const estimatedRange = remainingEnergy_kWh / (consumption / 1000);
