@@ -100,7 +100,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                             <p className="text-xs text-muted-foreground">vs. ICE car</p>
                         </CardContent>
                     </Card>
-                     <Card className="flex flex-col">
+                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-headline flex items-center gap-2">Fatigue Monitor</CardTitle>
                             <p className="text-xs text-muted-foreground -mt-2">LSTM Anomaly detection.</p>
