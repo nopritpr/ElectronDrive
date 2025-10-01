@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ChargingHabitChart from "../charts/charging-habit-chart";
 import type { VehicleState } from "@/lib/types";
-import { Clock, Route, Zap, TrendingUp, HeartPulse, Thermometer, BatteryCharging, DollarSign } from "lucide-react";
+import { Clock, Route, Zap, TrendingUp, HeartPulse, Thermometer, BatteryCharging } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 interface AnalyticsTabProps {
@@ -78,11 +78,11 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
             
             <Card className="col-span-5 md:col-span-1 row-span-1">
                 <CardHeader>
-                    <CardTitle className="text-sm font-headline flex items-center gap-2"><DollarSign className="w-4 h-4"/>Cost Savings</CardTitle>
+                    <CardTitle className="text-sm font-headline flex items-center gap-2"><span className="font-bold text-base">₹</span>Cost Savings</CardTitle>
                 </CardHeader>
                 <CardContent className="text-center">
                     <p className="text-4xl font-bold text-green-400 font-headline">₹{Math.round(savings)}</p>
-                    <p className="text-xs text-muted-foreground">vs. gasoline car</p>
+                    <p className="text-xs text-muted-foreground">vs. ICE Engine car</p>
                     <p className="text-[10px] text-muted-foreground/80 mt-2">(ICE @ ₹8/km vs. EV @ ₹2/km)</p>
                 </CardContent>
             </Card>
