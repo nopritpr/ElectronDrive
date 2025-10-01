@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
@@ -301,42 +302,39 @@ export function useVehicleSimulation() {
 
     if (currentAcceleration > 0.05) { // Accelerating
         netPower_kW = power_motor_kW + ac_power_kW;
-        netEnergyConsumedWh = netPower_kW * 1000 * (timeDelta / 3600);
     } else if (currentAcceleration < -0.1) { // Braking / Regenerating
-        const regenPower_kW = Math.abs(currentAcceleration * newSpeedKmh * EV_CONSTANTS.regenEfficiency / 3000);
+        const regenPower_kW = Math.abs(currentAcceleration * newSpeedKmh * EV_CONSTANTS.regenEfficiency / 30); // Adjusted factor
         netPower_kW = -regenPower_kW + ac_power_kW;
-        netEnergyConsumedWh = netPower_kW * 1000 * (timeDelta / 3600);
     } else { // Coasting
         netPower_kW = power_motor_kW + ac_power_kW;
-        netEnergyConsumedWh = netPower_kW * 1000 * (timeDelta / 3600);
     }
     
+    netEnergyConsumedWh = netPower_kW * 1000 * (timeDelta / 3600);
+
     let newSOC = prevState.batterySOC;
     if (!prevState.isCharging) {
       const socChange = (netEnergyConsumedWh / (prevState.packNominalCapacity_kWh * 1000)) * 100;
       newSOC -= socChange;
     } else {
-       newSOC += 1 * timeDelta;
+       newSOC += (EV_CONSTANTS.chargeRate_kW / prevState.packNominalCapacity_kWh) * 100 * timeDelta;
     }
     newSOC = Math.max(0, Math.min(100, newSOC));
     
     // --- Range Calculation ---
     const usableEnergy_kWh = (newSOC / 100) * prevState.packUsableFraction * prevState.packNominalCapacity_kWh;
     
-    // Calculate base consumption for the current mode
     let modeBaseConsumption = EV_CONSTANTS.baseConsumption;
     if (prevState.driveMode === 'City') modeBaseConsumption *= EV_CONSTANTS.cityModeConsumptionFactor;
     if (prevState.driveMode === 'Sports') modeBaseConsumption *= EV_CONSTANTS.sportsModeConsumptionFactor;
 
-    // Apply penalties
     let penaltyFactor = 1;
-    if (prevState.acOn) penaltyFactor *= 1.05; // 5% penalty
-    if (prevState.goodsInBoot) penaltyFactor *= 1.02; // 2% penalty
-    penaltyFactor *= (1 + (prevState.passengers - 1) * 0.002); // 0.2% per passenger
+    if (prevState.acOn) penaltyFactor *= 1.05;
+    if (prevState.goodsInBoot) penaltyFactor *= 1.02;
+    penaltyFactor *= (1 + (prevState.passengers - 1) * 0.002);
 
     const finalConsumption_wh_km = modeBaseConsumption * penaltyFactor;
 
-    const newRange = (usableEnergy_kWh * 1000) / finalConsumption_wh_km;
+    const newRange = (usableEnergy_kWh * 1000) / (finalConsumption_wh_km > 0 ? finalConsumption_wh_km : EV_CONSTANTS.baseConsumption);
     
     const newOdometer = prevState.odometer + distanceTraveledKm;
 
@@ -429,5 +427,7 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    
 
     
