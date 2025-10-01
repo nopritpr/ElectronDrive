@@ -73,12 +73,12 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><Zap className="w-4 h-4"/>Charging Habit</CardTitle>
                     <p className="text-xs text-muted-foreground -mt-2">Clustering model analysis.</p>
                 </CardHeader>
-                <CardContent className="flex items-center justify-center">
+                <CardContent className="flex items-center justify-center h-full pb-0">
                     <ChargingHabitChart data={analyzeChargingPatterns()} />
                 </CardContent>
             </Card>
 
-            <div className="flex flex-col gap-4">
+            <div className="grid grid-rows-2 gap-4">
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-sm font-headline flex items-center gap-2"><span className="font-bold text-base">₹</span>Cost Savings</CardTitle>
@@ -104,11 +104,10 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                     <h4 className="font-semibold text-sm font-headline flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4" />Dynamic Range Factors</h4>
                     <p className="text-xs text-muted-foreground -mt-2">Regression model analyzing range impact.</p>
                 </CardHeader>
-                <CardContent className="p-4 pt-0 h-full flex-grow">
+                <CardContent className="p-4 pt-0 h-full flex-grow min-h-0">
                     <DynamicRangeChart state={state} />
                 </CardContent>
             </Card>
-
         </div>
     );
 }
