@@ -59,7 +59,7 @@ export function useVehicleSimulation() {
             temperatureSetting: state.acTemp,
           },
           weatherData: {
-            temperature: state.outsideTemp,
+            temperature: state.weather?.main.temp || 25,
             precipitation: state.weather?.weather[0].main.toLowerCase() || 'sunny',
             windSpeed: state.weather?.wind.speed ? state.weather.wind.speed * 3.6 : 15,
           },
@@ -168,10 +168,7 @@ export function useVehicleSimulation() {
             totalPower_kW = (motorPower_kW / modeSettings.powerFactor) / EV_CONSTANTS.drivetrainEfficiency + acPower_kW + accessoryPower_kW;
         }
         
-        // Always apply base accessory draw when not charging, even when idle
-        if (newSpeed < 1) {
-          totalPower_kW = acPower_kW + accessoryPower_kW;
-        }
+        totalPower_kW = Math.max(totalPower_kW, acPower_kW + accessoryPower_kW);
 
 
         const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
@@ -212,7 +209,7 @@ export function useVehicleSimulation() {
         accelerationHistory: newAccelerationHistory,
         powerHistory: newPowerHistory,
         driveModeHistory: newDriveModeHistory,
-        recentWhPerKm,
+        recentWhPerKm: isFinite(recentWhPerKm) && recentWhPerKm > 1 ? recentWhPerKm: modeSettings.baseConsumption,
         recentWhPerKmWindow,
         ecoScore: state.ecoScore * 0.999 + (100 - Math.abs(physics.acceleration) * 2 - (totalPower_kW > 0 ? totalPower_kW / 10 : 0)) * 0.001,
         packSOH: Math.max(70, state.packSOH - Math.abs(socChange * 0.00001)),
@@ -264,18 +261,7 @@ export function useVehicleSimulation() {
   };
   
   const toggleAC = () => {
-    const newAcOn = !state.acOn;
-    let newRange = state.range;
-
-    if (newAcOn) {
-      newRange *= 0.9;
-    } else {
-      const remainingEnergy_kWh = (state.batterySOC / 100) * (state.packNominalCapacity_kWh * state.packUsableFraction) * (state.packSOH / 100);
-      const consumption_kWh_per_km = (state.recentWhPerKm > 0 ? state.recentWhPerKm / 1000 : MODE_SETTINGS[state.driveMode].baseConsumption / 1000);
-      newRange = remainingEnergy_kWh / consumption_kWh_per_km;
-    }
-
-    setState({ acOn: newAcOn, range: newRange });
+    setState(prevState => ({ acOn: !prevState.acOn }));
   };
 
   const setAcTemp = (temp: number) => setState({ acTemp: temp });
