@@ -97,7 +97,11 @@ export function useVehicleSimulation() {
   }, []);
 
   const setDriveMode = (mode: DriveMode) => {
-    setState({ driveMode: mode });
+    const modeSettings = MODE_SETTINGS[mode];
+    const remainingEnergy_kWh = (stateRef.current.batterySOC / 100) * (stateRef.current.packNominalCapacity_kWh * stateRef.current.packUsableFraction) * (stateRef.current.packSOH / 100);
+    const initialRange = remainingEnergy_kWh / (modeSettings.baseConsumption / 1000);
+
+    setState({ driveMode: mode, range: initialRange, recentWhPerKm: modeSettings.baseConsumption });
   };
   
   const toggleAC = () => {
@@ -227,19 +231,18 @@ export function useVehicleSimulation() {
         newState.tripB = (prevState.tripB || 0) + distanceTraveled;
     }
 
+    // Stable Power Calculation
     const speed_mps = newSpeed / 3.6;
     const aeroDragForce = 0.5 * EV_CONSTANTS.airDensity * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.dragCoeff * Math.pow(speed_mps, 2);
     const rollingResistanceForce = EV_CONSTANTS.rollingResistanceCoeff * EV_CONSTANTS.mass_kg * EV_CONSTANTS.gravity;
-    
-    const drivingForce = aeroDragForce + rollingResistanceForce;
-    const drivingPower_kW = (drivingForce * speed_mps) / 1000;
-    let motorPower_kW = (drivingPower_kW / EV_CONSTANTS.drivetrainEfficiency);
-    
+    const mechanicalPower_kW = ((aeroDragForce + rollingResistanceForce) * speed_mps) / 1000;
+    const motorPower_kW = mechanicalPower_kW / EV_CONSTANTS.drivetrainEfficiency;
+
     const acceleration_mps2 = physics.acceleration / 3.6;
-    let accelerationPower_kW = (EV_CONSTANTS.mass_kg * acceleration_mps2 * speed_mps) / 1000;
-    
-    let acPower_kW = prevState.acOn ? 0.5 + Math.abs(prevState.outsideTemp - prevState.acTemp) * 0.1 : 0;
-    let accessoryPower_kW = EV_CONSTANTS.accessoryBase_kW;
+    const accelerationPower_kW = (EV_CONSTANTS.mass_kg * acceleration_mps2 * speed_mps) / 1000;
+
+    const acPower_kW = prevState.acOn ? 0.5 + Math.abs(prevState.outsideTemp - prevState.acTemp) * 0.1 : 0;
+    const accessoryPower_kW = EV_CONSTANTS.accessoryBase_kW;
 
     let totalPower_kW = 0;
     let newSOC = prevState.batterySOC;
@@ -250,13 +253,15 @@ export function useVehicleSimulation() {
         newSOC += socChange;
         totalPower_kW = -EV_CONSTANTS.chargeRate_kW;
     } else {
-        if (physics.regenActive && accelerationPower_kW < 0 && newSpeed > 1) {
+        const isRegenerating = physics.regenActive && accelerationPower_kW < 0 && newSpeed > 1 && !physics.brakingApplied;
+
+        if (isRegenerating) {
             physics.regenPower = Math.min(EV_CONSTANTS.maxRegenPower_kW, Math.abs(accelerationPower_kW)) * modeSettings.regenEfficiency;
             totalPower_kW = -physics.regenPower;
         } else {
             physics.regenPower = 0;
-            let drivingAndAccelPower = (motorPower_kW + Math.max(0, accelerationPower_kW)) / modeSettings.powerFactor;
-            totalPower_kW = drivingAndAccelPower + acPower_kW + accessoryPower_kW;
+            const inertialPower = Math.max(0, accelerationPower_kW); // Only consume power when accelerating, not braking
+            totalPower_kW = (motorPower_kW + inertialPower) / modeSettings.powerFactor + acPower_kW + accessoryPower_kW;
         }
         
         const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
@@ -270,11 +275,19 @@ export function useVehicleSimulation() {
     
     newState.power = totalPower_kW;
 
-    const currentWhPerKm = newSpeed > 1 ? (Math.max(0, totalPower_kW) * 1000) / newSpeed : 0;
+    // Stable Wh/km and Range Calculation
+    let currentWhPerKm = 0;
+    if (newSpeed > 1 && totalPower_kW > 0) {
+        currentWhPerKm = (totalPower_kW * 1000) / newSpeed;
+    }
 
-    const smoothingFactor = 0.05;
-    const smoothedWhPerKm = (prevState.recentWhPerKm * (1 - smoothingFactor)) + (currentWhPerKm * smoothingFactor);
-    newState.recentWhPerKm = isFinite(smoothedWhPerKm) ? Math.max(50, Math.min(500, smoothedWhPerKm)) : modeSettings.baseConsumption;
+    const smoothingFactor = 0.05; // Use a small factor for slow smoothing
+    let smoothedWhPerKm = prevState.recentWhPerKm;
+    if (currentWhPerKm > 0) { // Only update if we have a valid consumption value
+      smoothedWhPerKm = (prevState.recentWhPerKm * (1 - smoothingFactor)) + (currentWhPerKm * smoothingFactor);
+    }
+    
+    newState.recentWhPerKm = isFinite(smoothedWhPerKm) ? Math.max(50, smoothedWhPerKm) : modeSettings.baseConsumption;
     
     const remainingEnergy_kWh = (newSOC / 100) * (prevState.packNominalCapacity_kWh * prevState.packUsableFraction) * (prevState.packSOH / 100);
     const consumption = newState.recentWhPerKm > 0 ? newState.recentWhPerKm : modeSettings.baseConsumption;
