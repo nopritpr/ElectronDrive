@@ -33,6 +33,9 @@ const prompt = ai.definePrompt({
   name: 'analyzeDrivingStylePrompt',
   input: {schema: AnalyzeDrivingStyleInputSchema},
   output: {schema: AnalyzeDrivingStyleOutputSchema},
+  config: {
+    model: 'gemini-pro',
+  },
   prompt: `You are an expert driving coach who analyzes driving data and provides personalized recommendations to improve driving safety and efficiency.
 
 Analyze the following driving data to determine the driver's driving style and provide 3-5 actionable recommendations to improve their driving habits:

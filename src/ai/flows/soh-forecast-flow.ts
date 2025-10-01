@@ -50,6 +50,9 @@ const prompt = ai.definePrompt({
   name: 'sohForecastPrompt',
   input: {schema: SohForecastInputSchema},
   output: {schema: SohForecastOutputSchema},
+  config: {
+    model: 'gemini-pro',
+  },
   prompt: `You are a battery health forecasting expert. Given the historical driving data, predict the future State of Health (SOH) of the battery at different odometer readings.
 
 Historical Data:

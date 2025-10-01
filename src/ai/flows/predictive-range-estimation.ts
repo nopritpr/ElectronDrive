@@ -54,6 +54,9 @@ const prompt = ai.definePrompt({
   name: 'predictiveRangePrompt',
   input: {schema: PredictiveRangeInputSchema},
   output: {schema: PredictiveRangeOutputSchema},
+  config: {
+    model: 'gemini-pro',
+  },
   prompt: `You are an expert AI system that predicts the remaining range of an electric vehicle based on various factors. Your goal is to provide a more accurate range estimation than the standard one.
 
 Analyze the following data:

@@ -35,6 +35,9 @@ const prompt = ai.definePrompt({
   name: 'driverFatigueMonitorPrompt',
   input: {schema: DriverFatigueInputSchema},
   output: {schema: DriverFatigueOutputSchema},
+  config: {
+    model: 'gemini-pro',
+  },
   prompt: `You are an expert AI system designed to detect driver fatigue by analyzing vehicle telemetry, simulating an LSTM Autoencoder for anomaly detection. Your primary goal is to identify driving patterns that deviate from normal, alert driving.
 
 Analyze the following time-series data from the last 60 seconds:

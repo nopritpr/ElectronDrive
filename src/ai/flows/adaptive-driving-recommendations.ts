@@ -47,6 +47,9 @@ const adaptiveDrivingRecommendationsPrompt = ai.definePrompt({
   name: 'adaptiveDrivingRecommendationsPrompt',
   input: {schema: DrivingRecommendationInputSchema},
   output: {schema: DrivingRecommendationOutputSchema},
+  config: {
+    model: 'gemini-pro',
+  },
   prompt: `You are an AI assistant that provides adaptive driving recommendations to electric vehicle (EV) drivers to improve energy efficiency and extend driving range.
 
   Based on the following information about the driver and their current driving conditions, provide a single, clear and actionable recommendation, as well as a justification for that recommendation. Keep the recommendation concise, 1-2 sentences maximum. Assume the user wants to maximize efficiency and range. The recommendation should be something the driver can do immediately.
