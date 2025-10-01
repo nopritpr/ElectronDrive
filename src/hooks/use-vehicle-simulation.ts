@@ -69,13 +69,13 @@ export function useVehicleSimulation() {
 
   const callAI = useCallback(async () => {
     const currentState = stateRef.current;
-    if (
+     if (
       currentState.batterySOC === null ||
       typeof currentState.batterySOC === 'undefined' ||
       currentState.outsideTemp === null ||
       typeof currentState.outsideTemp === 'undefined'
     ) {
-      return; // Do not call AI if state is not ready
+      return;
     }
 
     if (Date.now() - lastAiCall.current < 10000) return;
@@ -298,25 +298,24 @@ export function useVehicleSimulation() {
     let ac_power_kW = prevState.acOn ? EV_CONSTANTS.acPower_kW : 0;
     
     let netPower_kW = 0;
-    let netEnergyConsumedWh = 0;
-
+    
     if (currentAcceleration > 0.05) { // Accelerating
         netPower_kW = power_motor_kW + ac_power_kW;
     } else if (currentAcceleration < -0.1) { // Braking / Regenerating
-        const regenPower_kW = Math.abs(currentAcceleration * newSpeedKmh * EV_CONSTANTS.regenEfficiency / 30); // Adjusted factor
+        const regenPower_kW = Math.abs(currentAcceleration * newSpeedKmh * EV_CONSTANTS.regenEfficiency / 30);
         netPower_kW = -regenPower_kW + ac_power_kW;
     } else { // Coasting
         netPower_kW = power_motor_kW + ac_power_kW;
     }
     
-    netEnergyConsumedWh = netPower_kW * 1000 * (timeDelta / 3600);
+    const netEnergyConsumedWh = netPower_kW * 1000 * (timeDelta / 3600);
 
     let newSOC = prevState.batterySOC;
-    if (!prevState.isCharging) {
+    if (prevState.isCharging) {
+       newSOC += 1 * timeDelta; // 1% per second
+    } else {
       const socChange = (netEnergyConsumedWh / (prevState.packNominalCapacity_kWh * 1000)) * 100;
       newSOC -= socChange;
-    } else {
-       newSOC += (EV_CONSTANTS.chargeRate_kW / prevState.packNominalCapacity_kWh) * 100 * timeDelta;
     }
     newSOC = Math.max(0, Math.min(100, newSOC));
     
@@ -427,7 +426,5 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
-
-    
 
     
