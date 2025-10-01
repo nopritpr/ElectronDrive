@@ -1,3 +1,4 @@
+
 import type { VehicleState, DriveMode } from './types';
 
 export const defaultState: VehicleState = {
@@ -93,8 +94,8 @@ export const EV_CONSTANTS = {
   chargeRate_kW: 22,
   acPower_kW: 1.5,
   baseConsumption: 158.33, // Wh/km for 450km range on 71.25kWh usable
-  cityModeConsumptionFactor: 1.0714, // For 420km range
-  sportsModeConsumptionFactor: 1.0714, // For 420km range
+  cityModeConsumption: 169.64, // Wh/km for 420km range
+  sportsModeConsumption: 169.64, // Wh/km for 420km range
   gentleRegenBrakeRate: 0.8, // m/s^2 for one-pedal driving feel
 };
 
