@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -15,14 +16,23 @@ interface DynamicRangeChartProps {
 
 export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
     const idealRange = state.initialRange * (state.batterySOC / 100);
+    const predictedRange = state.predictedDynamicRange;
+    const totalPenalty = Math.max(0, idealRange - predictedRange);
 
-    const acPenalty = state.acOn ? 15 : 0;
-    const tempPenalty = Math.abs(22 - state.outsideTemp) > 8 ? 10 : 0;
-    const driveModePenalty = state.driveMode === 'Sports' ? 25 : (state.driveMode === 'City' ? 10 : 0);
-    const loadPenalty = (state.passengers > 1 || state.goodsInBoot) ? 8 : 0;
+    const weights = {
+      ac: state.acOn ? 0.3 : 0,
+      temp: Math.abs(22 - state.outsideTemp) > 8 ? 0.2 : 0,
+      driveMode: state.driveMode === 'Sports' ? 0.4 : (state.driveMode === 'City' ? 0.2 : 0),
+      load: (state.passengers > 1 || state.goodsInBoot) ? 0.1 : 0,
+    };
 
-    const totalPenalty = acPenalty + tempPenalty + driveModePenalty + loadPenalty;
-    const predictedRange = Math.max(0, idealRange - totalPenalty);
+    const totalWeight = Object.values(weights).reduce((sum, weight) => sum + weight, 0);
+
+    const acPenalty = totalWeight > 0 ? (weights.ac / totalWeight) * totalPenalty : 0;
+    const tempPenalty = totalWeight > 0 ? (weights.temp / totalWeight) * totalPenalty : 0;
+    const driveModePenalty = totalWeight > 0 ? (weights.driveMode / totalWeight) * totalPenalty : 0;
+    const loadPenalty = totalWeight > 0 ? (weights.load / totalWeight) * totalPenalty : 0;
+
 
     const data = [
         { name: 'Ideal', value: idealRange, fill: 'hsl(var(--chart-2))' },
@@ -70,8 +80,8 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
                   const numValue = Number(value);
                   if (numValue === 0) return '';
                   const roundedValue = Math.round(numValue);
-                  // For negative values, we want to show them as positive penalties.
-                  if (roundedValue < 0) return `-${Math.abs(roundedValue)} km`;
+                  if (['A/C', 'Temp', 'Drive Mode', 'Load'].includes(data.find(d => d.value === value)?.name || '') && roundedValue === 0) return '';
+                  
                   return `${roundedValue} km`;
                 }}
                 className="fill-foreground font-semibold text-xs"
