@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
-import type { VehicleState, VehiclePhysics, DriveMode, Profile, ChargingLog, SohHistoryEntry } from '@/lib/types';
+import type { VehicleState, DriveMode, Profile, ChargingLog, SohHistoryEntry } from '@/lib/types';
 import { defaultState, EV_CONSTANTS, MODE_SETTINGS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { getDrivingRecommendation } from '@/ai/flows/adaptive-driving-recommendations';
@@ -20,16 +20,52 @@ function stateReducer(state: VehicleState, action: Partial<VehicleState>): Vehic
   return { ...state, ...action };
 }
 
+const calculatePowerAndEnergy = (
+  state: VehicleState,
+  speed_ms: number,
+  acceleration_ms2: number,
+  timeDelta_s: number
+) => {
+    const totalWeight_kg = EV_CONSTANTS.mass_kg + (state.passengers * EV_CONSTANTS.avgPassengerWeight_kg) + (state.goodsInBoot ? EV_CONSTANTS.bootGoodsWeight_kg : 0);
+
+    // Forces
+    const rollingResistanceForce = EV_CONSTANTS.rollingResistanceCoeff * totalWeight_kg * EV_CONSTANTS.gravity;
+    const dragForce = 0.5 * EV_CONSTANTS.dragCoeff * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.airDensity * speed_ms * speed_ms;
+    const accelerationForce = totalWeight_kg * acceleration_ms2;
+
+    const totalForce = rollingResistanceForce + dragForce + accelerationForce;
+
+    // Power
+    const powerAtWheels_kW = (totalForce * speed_ms) / 1000;
+    
+    let motorPower_kW: number;
+    let regenPower_kW = 0;
+
+    if (powerAtWheels_kW > 0) {
+        // Propulsion
+        motorPower_kW = powerAtWheels_kW / EV_CONSTANTS.drivetrainEfficiency;
+    } else {
+        // Regeneration
+        const regenBrakingPower = Math.abs(powerAtWheels_kW) * EV_CONSTANTS.regenEfficiency;
+        regenPower_kW = Math.min(regenBrakingPower, EV_CONSTANTS.maxRegenPower_kW);
+        motorPower_kW = -regenPower_kW;
+    }
+    
+    const accessoryPower_kW = state.acOn ? EV_CONSTANTS.acPower_kW : 0.2; // 0.2kW for base systems
+    const totalPower_kW = motorPower_kW + accessoryPower_kW;
+
+    // Energy
+    const energyConsumed_kWh = totalPower_kW * (timeDelta_s / 3600);
+
+    return { totalPower_kW, energyConsumed_kWh, regenPower_kW };
+};
+
+
 export function useVehicleSimulation() {
   const [state, setState] = useReducer(stateReducer, defaultState);
   const { toast } = useToast();
-  const physicsRef = useRef<VehiclePhysics>({
-    acceleration: 0,
-    inertiaFactor: 0.98,
-    brakingApplied: false,
-    regenActive: false,
-    regenPower: 0,
-  });
+  
+  const accelerationRef = useRef<number>(0);
   const requestRef = useRef<number>();
   const stateRef = useRef<VehicleState>(state);
   const lastAiCall = useRef(0);
@@ -248,124 +284,91 @@ export function useVehicleSimulation() {
   const updateVehicleState = useCallback(() => {
     const prevState = stateRef.current;
     const now = Date.now();
-    const timeDelta = (now - prevState.lastUpdate) / 1000; // in seconds
+    const timeDelta = (now - prevState.lastUpdate) / 1000;
     if (timeDelta <= 0) {
       requestRef.current = requestAnimationFrame(updateVehicleState);
       return;
     }
 
-    const physics = physicsRef.current;
     const modeSettings = MODE_SETTINGS[prevState.driveMode];
-    
-    // --- Acceleration ---
+    let currentAcceleration = accelerationRef.current;
+
+    // --- Acceleration & Speed ---
     let targetAcceleration = 0;
     if (keys.ArrowUp) {
       targetAcceleration = modeSettings.accelRate;
-    } else if (keys.ArrowDown) {
-      targetAcceleration = -modeSettings.brakeRate;
+    } else if (keys.ArrowDown || keys.r) {
+      targetAcceleration = -(keys.r ? modeSettings.strongRegenBrakeRate : modeSettings.brakeRate);
     }
+    
+    currentAcceleration += (targetAcceleration - currentAcceleration) * 0.1; // Smooth acceleration
+    accelerationRef.current = currentAcceleration;
 
-    // Apply inertia for smooth acceleration changes
-    physics.acceleration = physics.acceleration + (targetAcceleration - physics.acceleration) * 0.1;
-    
-    // --- Speed & Distance ---
-    let newSpeedMs = (prevState.speed / 3.6) + (physics.acceleration * timeDelta);
+    let newSpeedMs = (prevState.speed / 3.6) + (currentAcceleration * timeDelta);
     if (targetAcceleration === 0) {
-      newSpeedMs *= 0.99; // Natural deceleration
+      newSpeedMs *= EV_CONSTANTS.naturalDeceleration; // Natural coasting deceleration
     }
-    
     newSpeedMs = Math.max(0, newSpeedMs);
     let newSpeedKmh = newSpeedMs * 3.6;
     newSpeedKmh = Math.min(newSpeedKmh, modeSettings.maxSpeed);
     newSpeedMs = newSpeedKmh / 3.6;
 
-    const distanceTraveledKm = newSpeedMs * timeDelta / 1000;
-
-    // --- Power Calculation ---
+    const distanceTraveledKm = (newSpeedMs * timeDelta) / 1000;
+    
+    // --- Power & Energy ---
     let newSOC = prevState.batterySOC;
     let totalPower_kW = 0;
-    
+
     if (prevState.isCharging) {
-        const chargeSocPerSecond = (EV_CONSTANTS.chargeRate_kW / prevState.packNominalCapacity_kWh) * 100 / 3600;
-        newSOC += chargeSocPerSecond * timeDelta;
-        newSOC = Math.min(100, newSOC);
-        totalPower_kW = -EV_CONSTANTS.chargeRate_kW;
-    } else if (newSpeedKmh > 0) {
-        const totalWeight = EV_CONSTANTS.mass_kg + (prevState.passengers * EV_CONSTANTS.avgPassengerWeight_kg) + (prevState.goodsInBoot ? EV_CONSTANTS.bootGoodsWeight_kg : 0);
-
-        // Force of Rolling Resistance
-        const rollingResistanceForce = EV_CONSTANTS.rollingResistanceCoeff * totalWeight * EV_CONSTANTS.gravity;
-
-        // Force of Aerodynamic Drag
-        const dragForce = 0.5 * EV_CONSTANTS.dragCoeff * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.airDensity * newSpeedMs * newSpeedMs;
-
-        // Force for Acceleration
-        const accelerationForce = totalWeight * physics.acceleration;
-
-        // Total tractive force
-        let totalForce = rollingResistanceForce + dragForce + accelerationForce;
-        
-        let powerAtWheels_kW = 0;
-        if (totalForce > 0) {
-             powerAtWheels_kW = (totalForce * newSpeedMs) / 1000; // Power in kW
-        }
-
-        // Regenerative Braking
-        let regenPower_kW = 0;
-        if (physics.acceleration < -0.1 && newSpeedKmh > 1) {
-            regenPower_kW = Math.min(
-                EV_CONSTANTS.maxRegenPower_kW,
-                Math.abs(accelerationForce * newSpeedMs / 1000) * modeSettings.regenEfficiency
-            );
-            powerAtWheels_kW -= regenPower_kW;
-        }
-
-        const motorPower_kW = powerAtWheels_kW / EV_CONSTANTS.drivetrainEfficiency;
-        const accessoryPower_kW = prevState.acOn ? EV_CONSTANTS.acPower_kW : 0;
-        totalPower_kW = motorPower_kW + accessoryPower_kW;
-
-        const energyConsumed_kWh = totalPower_kW * (timeDelta / 3600);
-        const socChange = (energyConsumed_kWh / prevState.packNominalCapacity_kWh) * 100;
-
-        if (!isNaN(socChange)) {
-          newSOC -= socChange;
-        }
+      const chargeSocPerSecond = (EV_CONSTANTS.chargeRate_kW / prevState.packNominalCapacity_kWh) * 100 / 3600;
+      newSOC += chargeSocPerSecond * timeDelta;
+      newSOC = Math.min(100, newSOC);
+      totalPower_kW = -EV_CONSTANTS.chargeRate_kW;
+    } else if (newSpeedKmh > 0 || Math.abs(currentAcceleration) > 0.1) {
+      const { totalPower_kW: power, energyConsumed_kWh } = calculatePowerAndEnergy(prevState, newSpeedMs, currentAcceleration, timeDelta);
+      totalPower_kW = power;
+      
+      const socChange = (energyConsumed_kWh / prevState.packNominalCapacity_kWh) * 100;
+      if (!isNaN(socChange)) {
+        newSOC -= socChange;
+      }
     }
 
     // --- Efficiency & Range ---
-    const energyConsumedWh = totalPower_kW * 1000 * (timeDelta / 3600);
-    const currentWhPerKm = distanceTraveledKm > 0 && energyConsumedWh > 0 ? energyConsumedWh / distanceTraveledKm : prevState.recentWhPerKm;
+    const currentWhPerKm = distanceTraveledKm > 0 ? (totalPower_kW * 1000 * (timeDelta/3600)) / distanceTraveledKm : 0;
     
-    // Smooth the Wh/km reading
-    const smoothingFactor = 0.05;
-    const smoothedWhPerKm = (prevState.recentWhPerKm * (1 - smoothingFactor)) + (currentWhPerKm * smoothingFactor);
+    const newWhPerKmWindow = [...prevState.recentWhPerKmWindow, currentWhPerKm > 0 ? currentWhPerKm : prevState.recentWhPerKm];
+    if (newWhPerKmWindow.length > 50) newWhPerKmWindow.shift();
+    
+    const smoothedWhPerKm = newWhPerKmWindow.reduce((a, b) => a + b, 0) / newWhPerKmWindow.length;
     
     const remainingEnergy_kWh = (newSOC / 100) * prevState.packUsableFraction * prevState.packNominalCapacity_kWh;
-    const newRange = smoothedWhPerKm > 0 ? remainingEnergy_kWh / (smoothedWhPerKm / 1000) : prevState.range;
+    const newRange = smoothedWhPerKm > 10 ? remainingEnergy_kWh / (smoothedWhPerKm / 1000) : prevState.range;
 
     const newOdometer = prevState.odometer + distanceTraveledKm;
 
     const newState: Partial<VehicleState> = {
-        speed: newSpeedKmh,
-        odometer: newOdometer,
-        tripA: prevState.activeTrip === 'A' ? prevState.tripA + distanceTraveledKm : prevState.tripA,
-        tripB: prevState.activeTrip === 'B' ? prevState.tripB + distanceTraveledKm : prevState.tripB,
-        power: totalPower_kW,
-        batterySOC: Math.max(0, newSOC),
-        range: Math.max(0, newRange),
-        recentWhPerKm: smoothedWhPerKm,
-        lastUpdate: now,
-        displaySpeed: prevState.displaySpeed + (newSpeedKmh - prevState.displaySpeed) * 0.1,
-        speedHistory: [newSpeedKmh, ...prevState.speedHistory].slice(0, 100),
-        accelerationHistory: [physics.acceleration, ...prevState.accelerationHistory].slice(0, 100),
-        powerHistory: [totalPower_kW, ...prevState.powerHistory].slice(0, 100),
-        driveModeHistory: [prevState.driveMode, ...prevState.driveModeHistory].slice(0, 50) as DriveMode[],
-        ecoScore: prevState.ecoScore * 0.9995 + (100 - Math.abs(physics.acceleration) * 5 - (totalPower_kW > 0 ? totalPower_kW / 10 : 0)) * 0.0005,
-        packSOH: Math.max(70, prevState.packSOH - Math.abs((prevState.batterySOC - newSOC) * 0.000001)),
-        equivalentFullCycles: prevState.equivalentFullCycles + Math.abs((prevState.batterySOC - newSOC) / 100),
+      speed: newSpeedKmh,
+      odometer: newOdometer,
+      tripA: prevState.activeTrip === 'A' ? prevState.tripA + distanceTraveledKm : prevState.tripA,
+      tripB: prevState.activeTrip === 'B' ? prevState.tripB + distanceTraveledKm : prevState.tripB,
+      power: totalPower_kW,
+      batterySOC: Math.max(0, newSOC),
+      range: Math.max(0, newRange),
+      recentWhPerKm: smoothedWhPerKm,
+      recentWhPerKmWindow: newWhPerKmWindow,
+      lastUpdate: now,
+      displaySpeed: prevState.displaySpeed + (newSpeedKmh - prevState.displaySpeed) * 0.1,
+      speedHistory: [newSpeedKmh, ...prevState.speedHistory].slice(0, 100),
+      accelerationHistory: [currentAcceleration, ...prevState.accelerationHistory].slice(0, 100),
+      powerHistory: [totalPower_kW, ...prevState.powerHistory].slice(0, 100),
+      driveModeHistory: [prevState.driveMode, ...prevState.driveModeHistory].slice(0, 50) as DriveMode[],
+      ecoScore: prevState.ecoScore * 0.9995 + (100 - Math.abs(currentAcceleration) * 5 - (totalPower_kW > 0 ? totalPower_kW / 10 : 0)) * 0.0005,
+      packSOH: Math.max(70, prevState.packSOH - Math.abs((prevState.batterySOC - newSOC) * 0.000001)),
+      equivalentFullCycles: prevState.equivalentFullCycles + Math.abs((prevState.batterySOC - newSOC) / 100),
     };
 
-    if (newOdometer > lastSohHistoryUpdateOdometer.current + 50) { // Update every 50km
+    if (newOdometer > lastSohHistoryUpdateOdometer.current + 50) {
         lastSohHistoryUpdateOdometer.current = newOdometer;
         const newSohEntry: SohHistoryEntry = {
             odometer: newOdometer,
@@ -391,11 +394,9 @@ export function useVehicleSimulation() {
       if (e.key === '2') setDriveMode('City');
       if (e.key === '3') setDriveMode('Sports');
       if (e.key.toLowerCase() === 'a') toggleAC();
-      if (e.key.toLowerCase() === 'r') keys.r = true;
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key in keys) { e.preventDefault(); keys[e.key] = false; }
-      if (e.key.toLowerCase() === 'r') keys.r = false;
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -418,7 +419,6 @@ export function useVehicleSimulation() {
   return {
     state,
     setState,
-    vehiclePhysics: physicsRef.current,
     setDriveMode,
     toggleAC,
     setAcTemp,
@@ -433,3 +433,5 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    

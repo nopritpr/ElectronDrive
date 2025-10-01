@@ -15,7 +15,7 @@ export const defaultState: VehicleState = {
   power: 0,
   efficiency: 0,
   ecoScore: 85,
-  batteryCapacity_kWh: 50,
+  batteryCapacity_kWh: 75,
   lastUpdate: Date.now(),
   displaySpeed: 0,
   outsideTemp: 25,
@@ -30,8 +30,8 @@ export const defaultState: VehicleState = {
   stabilizerEnabled: true,
   rawPredictedRange: null,
   sohHistory: [],
-  packNominalCapacity_kWh: 50,
-  packUsableFraction: 0.92,
+  packNominalCapacity_kWh: 75,
+  packUsableFraction: 0.95,
   packSOH: 100,
   equivalentFullCycles: 0,
   cumulativeEnergyOut_kWh: 0,
@@ -41,8 +41,8 @@ export const defaultState: VehicleState = {
   regenEfficiencyDynamic: 0.85,
   thermalThrottleFactor: 1.0,
   regenLimitFactor: 1.0,
-  recentWhPerKm: 120,
-  recentWhPerKmWindow: Array(50).fill(120),
+  recentWhPerKm: 160,
+  recentWhPerKmWindow: Array(50).fill(160),
   styleMetrics: {
     aggression: 0,
     smoothness: 1,
@@ -81,18 +81,20 @@ export const defaultState: VehicleState = {
 };
 
 export const EV_CONSTANTS = {
-  mass_kg: 1800,
-  frontalArea_m2: 2.3,
-  dragCoeff: 0.28,
+  mass_kg: 1960,
+  frontalArea_m2: 2.4,
+  dragCoeff: 0.23,
   airDensity: 1.225, // kg/m^3
-  rollingResistanceCoeff: 0.01,
+  rollingResistanceCoeff: 0.009,
   gravity: 9.81,
-  drivetrainEfficiency: 0.92, // Motor to wheels
+  drivetrainEfficiency: 0.9,
+  regenEfficiency: 0.7,
   maxRegenPower_kW: 60,
   chargeRate_kW: 22,
-  acPower_kW: 1.8,
+  acPower_kW: 2.5,
   avgPassengerWeight_kg: 75,
   bootGoodsWeight_kg: 50,
+  naturalDeceleration: 0.995, // Factor to reduce speed by each physics tick when coasting
 };
 
 export const MODE_SETTINGS: Record<
@@ -100,30 +102,28 @@ export const MODE_SETTINGS: Record<
   {
     maxSpeed: number; // km/h
     accelRate: number; // m/s^2
-    decelRate: number; // m/s^2 (base)
     brakeRate: number; // m/s^2
-    regenEfficiency: number; // %
+    strongRegenBrakeRate: number; // m/s^2
   }
 > = {
   Eco: {
-    maxSpeed: 100,
-    accelRate: 1.4,
-    decelRate: 0.8,
-    brakeRate: 4.5,
-    regenEfficiency: 0.9,
+    maxSpeed: 120,
+    accelRate: 1.2,
+    brakeRate: 4.0,
+    strongRegenBrakeRate: 5.0,
   },
   City: {
-    maxSpeed: 130,
-    accelRate: 2.2,
-    decelRate: 0.5,
-    brakeRate: 5.5,
-    regenEfficiency: 0.8,
+    maxSpeed: 140,
+    accelRate: 2.0,
+    brakeRate: 5.0,
+    strongRegenBrakeRate: 6.0,
   },
   Sports: {
-    maxSpeed: 160,
-    accelRate: 4.0,
-    decelRate: 0.2,
-    brakeRate: 6.5,
-    regenEfficiency: 0.7,
+    maxSpeed: 180,
+    accelRate: 3.5,
+    brakeRate: 6.0,
+    strongRegenBrakeRate: 7.0,
   },
 };
+
+    
