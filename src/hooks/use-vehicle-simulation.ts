@@ -28,13 +28,37 @@ export function useVehicleSimulation() {
   const accelerationRef = useRef<number>(0);
   const requestRef = useRef<number>();
   const stateRef = useRef<VehicleState>(state);
+  
   const lastAiCall = useRef(0);
   const lastFatigueCheck = useRef(0);
+  const lastSohCheck = useRef(0);
   const lastSohHistoryUpdateOdometer = useRef(0);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  const callSohForecast = useCallback(async () => {
+    const currentState = stateRef.current;
+    if (Date.now() - lastSohCheck.current < 30000) return; // run every 30s
+    lastSohCheck.current = Date.now();
+
+    try {
+      const soh = await forecastSoh({
+        historicalData: [{
+            odometer: currentState.odometer,
+            cycleCount: currentState.equivalentFullCycles,
+            avgBatteryTemp: currentState.batteryTemp,
+            ecoPercent: 100, cityPercent: 0, sportsPercent: 0
+        }, ...currentState.sohHistory],
+      });
+      if (soh && soh.length > 0) {
+        setState({ sohForecast: soh });
+      }
+    } catch (error) {
+      console.error('SOH Forecast AI Flow error:', error);
+    }
+  }, []);
 
   const callFatigueMonitor = useCallback(async () => {
     const currentState = stateRef.current;
@@ -84,7 +108,7 @@ export function useVehicleSimulation() {
     lastAiCall.current = Date.now();
 
     try {
-      const [rec, style, range, soh] = await Promise.all([
+      const [rec, style, range] = await Promise.all([
         getDrivingRecommendation({
           drivingStyle: currentState.drivingStyle,
           predictedRange: currentState.predictedDynamicRange,
@@ -117,14 +141,6 @@ export function useVehicleSimulation() {
           batteryCapacity: currentState.batteryCapacity_kWh,
           currentBatteryLevel: currentState.batterySOC,
         }),
-        forecastSoh({
-          historicalData: [{
-              odometer: currentState.odometer,
-              cycleCount: currentState.equivalentFullCycles,
-              avgBatteryTemp: currentState.batteryTemp,
-              ecoPercent: 100, cityPercent: 0, sportsPercent: 0
-          }, ...currentState.sohHistory],
-        }),
       ]);
 
       setState({
@@ -132,7 +148,6 @@ export function useVehicleSimulation() {
         drivingStyle: style.drivingStyle,
         drivingStyleRecommendations: style.recommendations,
         predictedDynamicRange: range.estimatedRange,
-        sohForecast: soh,
       });
 
     } catch (error) {
@@ -402,10 +417,14 @@ export function useVehicleSimulation() {
     window.addEventListener('keyup', handleKeyUp);
     
     setDriveMode(defaultState.driveMode);
+    
+    // Initial call to populate SOH forecast
+    callSohForecast();
 
     requestRef.current = requestAnimationFrame(updateVehicleState);
     const aiTimer = setInterval(callAI, 10000);
     const fatigueTimer = setInterval(callFatigueMonitor, 5000);
+    const sohTimer = setInterval(callSohForecast, 30000);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -413,6 +432,7 @@ export function useVehicleSimulation() {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       clearInterval(aiTimer);
       clearInterval(fatigueTimer);
+      clearInterval(sohTimer);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -434,3 +454,5 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    
