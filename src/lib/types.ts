@@ -1,8 +1,12 @@
+
 export type DriveMode = 'Eco' | 'City' | 'Sports';
 
 export interface Profile {
   driveMode: DriveMode;
   acTemp: number;
+  id?: string;
+  phone?: string;
+  age?: number;
 }
 
 export interface ChargingLog {

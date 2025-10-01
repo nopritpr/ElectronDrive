@@ -119,12 +119,12 @@ export function useVehicleSimulation() {
           currentBatteryLevel: currentState.batterySOC,
         }),
         forecastSoh({
-          historicalData: currentState.sohHistory.length > 0 ? currentState.sohHistory : [{
+          historicalData: [{
               odometer: currentState.odometer,
               cycleCount: currentState.equivalentFullCycles,
               avgBatteryTemp: currentState.batteryTemp,
               ecoPercent: 100, cityPercent: 0, sportsPercent: 0
-          }],
+          }, ...currentState.sohHistory],
         }),
       ]);
 

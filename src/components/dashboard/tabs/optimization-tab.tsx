@@ -1,14 +1,13 @@
+
 'use client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import Image from "next/image";
 import EcoScoreGauge from "../charts/eco-score-gauge";
 import SohForecastChart from "../charts/soh-forecast-chart";
-import type { VehicleState } from "@/lib/types";
+import type { VehicleState, Profile } from "@/lib/types";
 import { Leaf, User, BrainCircuit, BarChart, HeartPulse } from "lucide-react";
 import { useMemo } from 'react';
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 interface OptimizationTabProps {
     state: VehicleState;
@@ -30,38 +29,51 @@ const InsightItem = ({ icon, title, description, type }: { icon: React.ReactNode
   </div>
 );
 
+const ProfileDetail = ({ label, value }: { label: string, value: string | number }) => (
+    <div className="text-xs">
+        <span className="text-muted-foreground">{label}: </span>
+        <span className="font-mono">{value}</span>
+    </div>
+);
+
 export default function OptimizationTab({ state, onProfileSwitchClick, onStabilizerToggle }: OptimizationTabProps) {
 
-  const insights = useMemo(() => [
-      ...(state.drivingRecommendation && state.drivingRecommendation !== 'Start driving to get recommendations.' ? [{
-          icon: '💡',
-          title: 'Live Tip',
-          description: state.drivingRecommendation,
-          type: 'tip'
-      }] : []),
-      ...(state.drivingStyleRecommendations || []).map(rec => ({
-          icon: '🎯',
-          title: 'Driving Style',
-          description: rec,
-          type: 'info'
-      }))
-  ], [state.drivingRecommendation, state.drivingStyleRecommendations]);
+  const insights = useMemo(() => {
+    const allInsights = [];
+    if (state.drivingRecommendation && state.drivingRecommendation !== 'Start driving to get recommendations.') {
+        allInsights.push({
+            icon: '💡',
+            title: 'Live Tip',
+            description: state.drivingRecommendation,
+            type: 'tip'
+        });
+    }
+    if (state.drivingStyleRecommendations) {
+        state.drivingStyleRecommendations.forEach(rec => {
+            allInsights.push({
+                icon: '🎯',
+                title: 'Driving Style',
+                description: rec,
+                type: 'info'
+            });
+        });
+    }
+    return allInsights;
+  }, [state.drivingRecommendation, state.drivingStyleRecommendations]);
   
-  const profileImage = useMemo(() => {
-    const profileId = `profile-${state.activeProfile.toLowerCase().split(' ')[0]}`;
-    return PlaceHolderImages.find(p => p.id === profileId)?.imageUrl || `https://placehold.co/64x64/748ffc/ffffff?text=${state.activeProfile.charAt(0)}`;
-  }, [state.activeProfile]);
-
+  const activeProfileData = state.profiles[state.activeProfile];
 
   return (
         <div className="h-full grid grid-cols-3 grid-rows-2 gap-4 min-h-0">
             <Card className="flex flex-col items-center justify-center">
                 <CardHeader className="items-center pb-2">
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><BarChart className="w-4 h-4"/>Eco-Driving Score</CardTitle>
-                     <p className="text-xs text-muted-foreground text-center -mt-2">Classification model analyzing driving style.</p>
                 </CardHeader>
-                <CardContent className="flex-grow w-48 h-48">
-                    <EcoScoreGauge score={state.ecoScore} />
+                <CardContent className="flex-grow w-48 h-48 flex flex-col items-center justify-center">
+                    <div className="w-full h-full">
+                        <EcoScoreGauge score={state.ecoScore} />
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center mt-2 px-2">Analyzes driving style, acceleration, and efficiency via a classification model.</p>
                 </CardContent>
             </Card>
 
@@ -74,6 +86,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                         {((state.odometer || 0) * (120 - 50) / 1000).toFixed(1)}
                     </p>
                     <p className="text-xs text-muted-foreground">kg CO₂ saved vs ICE</p>
+                    <p className="text-xs text-muted-foreground text-center mt-2">Calculated based on odometer reading vs. average emissions of a gasoline car.</p>
                 </CardContent>
             </Card>
             
@@ -81,11 +94,15 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                 <CardHeader>
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><User className="w-4 h-4"/>User Profile</CardTitle>
                 </CardHeader>
-                <CardContent className="flex items-center space-x-4">
-                    <Image src={profileImage} alt="User" width={64} height={64} className="w-16 h-16 rounded-full" />
-                    <div>
+                <CardContent className="space-y-2">
+                    <div className="flex justify-between items-center">
                         <p className="font-bold font-headline">{state.activeProfile}</p>
                         <Button variant="link" className="text-xs h-auto p-0 text-primary" onClick={onProfileSwitchClick}>Switch Profile</Button>
+                    </div>
+                    <div className="space-y-1 border-t pt-2">
+                        <ProfileDetail label="User ID" value={activeProfileData?.id || 'N/A'} />
+                        <ProfileDetail label="Phone" value={activeProfileData?.phone || 'N/A'} />
+                        <ProfileDetail label="Age" value={activeProfileData?.age || 'N/A'} />
                     </div>
                 </CardContent>
             </Card>
@@ -100,7 +117,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                         <SohForecastChart data={state.sohForecast} />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                            <p className="text-sm text-muted-foreground">Drive further to generate forecast data.</p>
+                            <p className="text-sm text-muted-foreground">Generating forecast data...</p>
                         </div>
                     )}
                 </CardContent>
