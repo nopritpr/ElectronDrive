@@ -92,7 +92,7 @@ export const EV_CONSTANTS = {
   regenEfficiency: 0.4, // Realistic regen efficiency
   chargeRate_kW: 22,
   acPower_kW: 1.5,
-  baseConsumption: 160, // Wh/km at moderate speed, no AC, eco mode
+  baseConsumption: 140, // Wh/km at moderate speed, no AC, eco mode
 };
 
 export const MODE_SETTINGS: Record<
