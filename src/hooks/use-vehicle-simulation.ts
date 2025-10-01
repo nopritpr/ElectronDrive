@@ -268,17 +268,26 @@ export function useVehicleSimulation() {
 
     let newSpeedKmh = prevState.speed + currentAcceleration * timeDelta * 3.6;
     newSpeedKmh = Math.max(0, newSpeedKmh);
-    newSpeedKmh = Math.min(newSpeedKmh, modeSettings.maxSpeed);
+    
+    // Do not allow speed to exceed max for the mode unless we are already over speed
+    if (newSpeedKmh > modeSettings.maxSpeed && currentAcceleration > 0) {
+      if (prevState.speed <= modeSettings.maxSpeed) {
+        newSpeedKmh = modeSettings.maxSpeed;
+      }
+    }
+
 
     const distanceTraveledKm = (newSpeedKmh / 3600) * timeDelta;
     
     // --- Energy Consumption ---
     let consumptionWhPerKm = EV_CONSTANTS.baseConsumption;
-
+    
+    // Mode penalty
     if (prevState.driveMode === 'City') consumptionWhPerKm *= 1.15;
     if (prevState.driveMode === 'Sports') consumptionWhPerKm *= 1.30;
     
-    consumptionWhPerKm *= (1 + (newSpeedKmh / 100)); // Simplified speed penalty
+    // Speed penalty - increases quadratically
+    consumptionWhPerKm *= (1 + Math.pow(newSpeedKmh / 100, 2));
 
     const weightPenalty = ((prevState.passengers - 1) * 0.05) + (prevState.goodsInBoot ? 0.08 : 0);
     consumptionWhPerKm *= (1 + weightPenalty);
@@ -287,7 +296,6 @@ export function useVehicleSimulation() {
       consumptionWhPerKm *= 1.10;
     }
     
-    // Regenerative Braking
     let energyRegeneratedWh = 0;
     if (currentAcceleration < -0.1 && newSpeedKmh > 1) { // Threshold for regen
         const regenPower_W = Math.abs(currentAcceleration * newSpeedKmh * EV_CONSTANTS.regenEfficiency);
@@ -312,6 +320,7 @@ export function useVehicleSimulation() {
     const newWhPerKmWindow = [...prevState.recentWhPerKmWindow, consumptionWhPerKm];
     if (newWhPerKmWindow.length > 50) newWhPerKmWindow.shift();
     const smoothedWhPerKm = newWhPerKmWindow.reduce((a, b) => a + b, 0) / newWhPerKmWindow.length;
+    
     const remainingEnergy_kWh = (newSOC / 100) * prevState.packUsableFraction * prevState.packNominalCapacity_kWh;
     const newRange = smoothedWhPerKm > 10 ? remainingEnergy_kWh / (smoothedWhPerKm / 1000) : prevState.range;
 
