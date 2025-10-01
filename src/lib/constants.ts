@@ -41,8 +41,8 @@ export const defaultState: VehicleState = {
   regenEfficiencyDynamic: 0.85,
   thermalThrottleFactor: 1.0,
   regenLimitFactor: 1.0,
-  recentWhPerKm: 102.2,
-  recentWhPerKmWindow: Array(50).fill(102.2),
+  recentWhPerKm: 120,
+  recentWhPerKmWindow: Array(50).fill(120),
   styleMetrics: {
     aggression: 0,
     smoothness: 1,
@@ -84,13 +84,13 @@ export const EV_CONSTANTS = {
   mass_kg: 1850,
   frontalArea_m2: 2.25,
   dragCoeff: 0.27,
-  airDensity: 1.204,
-  rollingResistanceCoeff: 0.010,
-  gravity: 9.806,
-  accessoryBase_kW: 0.25,
-  drivetrainEfficiency: 0.9,
+  airDensity: 1.225, // kg/m^3
+  rollingResistanceCoeff: 0.011,
+  gravity: 9.81,
+  drivetrainEfficiency: 0.90, // Motor to wheels
   maxRegenPower_kW: 70,
   chargeRate_kW: 22,
+  acPower_kW: 1.5,
   avgPassengerWeight_kg: 75,
   bootGoodsWeight_kg: 50,
 };
@@ -98,45 +98,33 @@ export const EV_CONSTANTS = {
 export const MODE_SETTINGS: Record<
   DriveMode,
   {
-    maxSpeed: number;
-    accelRate: number;
-    decelRate: number;
-    brakeRate: number;
-    regenEfficiency: number;
-    powerFactor: number;
-    baseConsumption: number; // Wh/km
-    baseRange: number; // km
+    maxSpeed: number; // km/h
+    accelRate: number; // m/s^2
+    decelRate: number; // m/s^2 (base)
+    brakeRate: number; // m/s^2
+    regenEfficiency: number; // %
   }
 > = {
   Eco: {
-    maxSpeed: 45,
-    accelRate: 20,
-    decelRate: 2.0,
-    brakeRate: 15,
+    maxSpeed: 90,
+    accelRate: 1.2,
+    decelRate: 0.8,
+    brakeRate: 4.0,
     regenEfficiency: 0.9,
-    powerFactor: 1.2,
-    baseConsumption: 102,
-    baseRange: 450,
   },
   City: {
-    maxSpeed: 75,
-    accelRate: 30,
-    decelRate: 1.5,
-    brakeRate: 25,
+    maxSpeed: 120,
+    accelRate: 2.0,
+    decelRate: 0.5,
+    brakeRate: 5.0,
     regenEfficiency: 0.8,
-    powerFactor: 1.0,
-    baseConsumption: 110,
-    baseRange: 420,
   },
   Sports: {
-    maxSpeed: 120,
-    accelRate: 50,
-    decelRate: 1.0,
-    brakeRate: 35,
+    maxSpeed: 160,
+    accelRate: 3.5,
+    decelRate: 0.2,
+    brakeRate: 6.0,
     regenEfficiency: 0.65,
-    powerFactor: 0.8,
-    baseConsumption: 125,
-    baseRange: 400,
   },
 };
 
