@@ -33,7 +33,6 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
     const driveModePenalty = totalWeight > 0 ? (weights.driveMode / totalWeight) * totalPenalty : 0;
     const loadPenalty = totalWeight > 0 ? (weights.load / totalWeight) * totalPenalty : 0;
     
-    // The data for the chart now correctly reflects the logic: Ideal - Penalties = Predicted
     const data = [
         { name: 'Ideal', value: idealRange, fill: 'hsl(var(--chart-2))' },
         { name: 'A/C', value: -acPenalty, fill: 'hsl(var(--chart-5))' },
@@ -52,7 +51,6 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
         data={data}
         layout="vertical"
         margin={{ left: 10, right: 50 }}
-        stackOffset="sign"
       >
         <CartesianGrid horizontal={false} />
         <YAxis
@@ -76,21 +74,12 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
                 dataKey="value"
                 position="right"
                 offset={8}
-                formatter={(value: number, entry: any) => {
-                  if (entry === undefined || value === null) {
+                formatter={(value: number) => {
+                  if (value === null || value === undefined) {
                     return null;
                   }
-                  
                   const numValue = Number(value);
                   const roundedValue = Math.round(numValue);
-
-                  if (['A/C', 'Temp', 'Drive Mode', 'Load'].includes(entry.name)) {
-                    // For penalties, show the label only if the penalty is significant enough to not be 0 when rounded.
-                    // A small threshold like -0.5 ensures we don't show "0 km" for tiny penalties.
-                    if (numValue > -0.5) {
-                        return '';
-                    }
-                  }
                   
                   return `${roundedValue} km`;
                 }}
