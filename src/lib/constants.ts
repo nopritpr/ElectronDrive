@@ -80,6 +80,7 @@ export const defaultState: VehicleState = {
   drivingStyle: 'Balanced',
   drivingStyleRecommendations: [],
   fatigueWarning: null,
+  fatigueLevel: 0,
 };
 
 export const EV_CONSTANTS = {
@@ -127,5 +128,3 @@ export const MODE_SETTINGS: Record<
     strongRegenBrakeRate: 7.0,
   },
 };
-
-    

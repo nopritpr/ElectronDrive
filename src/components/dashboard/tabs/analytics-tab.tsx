@@ -5,6 +5,8 @@ import type { VehicleState } from "@/lib/types";
 import { Clock, Route, Zap, TrendingUp, HeartPulse, Thermometer, BatteryCharging, HelpCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import DynamicRangeChart from "../charts/dynamic-range-chart";
+import FatigueMonitorGauge from "../charts/fatigue-monitor-gauge";
 
 interface AnalyticsTabProps {
     state: VehicleState;
@@ -89,53 +91,23 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                 </CardContent>
             </Card>
 
-            <Card className="col-span-5 md:col-span-2 row-span-1 p-4 flex flex-col justify-between">
-               <div className="space-y-1">
-                    <h4 className="font-semibold text-xs flex items-center gap-1 text-muted-foreground"><HeartPulse className="w-3 h-3" />Battery Health</h4>
-                    <ul className="text-xs space-y-1">
-                        <li>SOH: <span className="font-mono font-semibold">{state.packSOH.toFixed(1)} %</span></li>
-                        <li>Cycles: <span className="font-mono font-semibold">{state.equivalentFullCycles.toFixed(1)}</span></li>
-                        <li>Capacity: <span className="font-mono font-semibold">{(state.packNominalCapacity_kWh * state.packSOH / 100).toFixed(1)} kWh</span></li>
-                    </ul>
-                </div>
-                 <div className="space-y-1">
-                    <h4 className="font-semibold text-xs flex items-center gap-1 text-muted-foreground"><Thermometer className="w-3 h-3" />Thermal Status</h4>
-                    <ul className="text-xs space-y-1">
-                        <li>Battery: <span className="font-mono font-semibold">{state.batteryTemp.toFixed(1)} °C</span></li>
-                        <li>Cabin: <span className="font-mono font-semibold">{state.insideTemp.toFixed(1)} °C</span></li>
-                        <li>Regen Limit: <span className="font-mono font-semibold">{(state.regenLimitFactor * 100).toFixed(0)}%</span></li>
-                    </ul>
-                </div>
+            <Card className="col-span-5 md:col-span-1 row-span-1 flex flex-col">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-headline flex items-center gap-2">Fatigue Monitor</CardTitle>
+                     <p className="text-xs text-muted-foreground -mt-2">LSTM Autoencoder anomaly detection.</p>
+                </CardHeader>
+                <CardContent className="flex-grow flex items-center justify-center">
+                    <FatigueMonitorGauge fatigueLevel={state.fatigueLevel} />
+                </CardContent>
             </Card>
+
             <Card className="p-4 col-span-5 md:col-span-3">
-              <CardHeader className="p-0">
-                 <h4 className="font-semibold text-sm font-headline flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4" />Battery & Range</h4>
+              <CardHeader className="p-0 mb-2">
+                 <h4 className="font-semibold text-sm font-headline flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4" />Dynamic Range Factors</h4>
+                 <p className="text-xs text-muted-foreground -mt-2">Regression model analyzing range impact.</p>
               </CardHeader>
-              <CardContent className="p-0">
-                <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden mb-2">
-                    <Progress value={state.batterySOC} className="h-4" />
-                    {state.isCharging && <div className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,hsla(0,0%,100%,.1)_25%,transparent_25%)] bg-[length:1rem_1rem] animate-charge-shine" />}
-                </div>
-                <div className="flex justify-between items-end mt-1 text-base font-semibold">
-                    <span className="text-lg">{state.batterySOC.toFixed(1)}%</span>
-                    <div className="text-right">
-                        <span className="font-semibold text-lg">{Math.round( (state.packSOH/100) * state.packUsableFraction * state.batteryCapacity_kWh / (state.recentWhPerKm > 0 ? state.recentWhPerKm/1000 : 0.18) * (state.batterySOC/100) )} km</span>
-                        <p className="text-xs text-primary font-normal flex items-center justify-end gap-1">
-                          AI: {Math.round(state.predictedDynamicRange)} km
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle className="w-3 h-3 text-muted-foreground" />
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs text-xs" side="top" align="end">
-                                <h4 className="font-bold mb-1">Dynamic Range Predictor (Regression Model)</h4>
-                                <p>This prediction uses a regression model to estimate range based on driving style, A/C usage, outside temperature, passengers, and cargo weight.</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </p>
-                    </div>
-                </div>
+              <CardContent className="p-0 h-40">
+                <DynamicRangeChart state={state} />
               </CardContent>
             </Card>
         </div>

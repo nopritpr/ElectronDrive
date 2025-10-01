@@ -8,6 +8,7 @@ import SohForecastChart from "../charts/soh-forecast-chart";
 import type { VehicleState } from "@/lib/types";
 import { Leaf, User, BrainCircuit, BarChart, HeartPulse } from "lucide-react";
 import { useMemo } from 'react';
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 interface OptimizationTabProps {
     state: VehicleState;
@@ -45,6 +46,11 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
           type: 'info'
       }))
   ], [state.drivingRecommendation, state.drivingStyleRecommendations]);
+  
+  const profileImage = useMemo(() => {
+    const profileId = `profile-${state.activeProfile.toLowerCase().split(' ')[0]}`;
+    return PlaceHolderImages.find(p => p.id === profileId)?.imageUrl || `https://placehold.co/64x64/748ffc/ffffff?text=${state.activeProfile.charAt(0)}`;
+  }, [state.activeProfile]);
 
 
   return (
@@ -76,7 +82,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><User className="w-4 h-4"/>User Profile</CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center space-x-4">
-                    <Image src={`https://placehold.co/64x64/748ffc/ffffff?text=${state.activeProfile.charAt(0)}`} alt="User" width={64} height={64} className="w-16 h-16 rounded-full" />
+                    <Image src={profileImage} alt="User" width={64} height={64} className="w-16 h-16 rounded-full" />
                     <div>
                         <p className="font-bold font-headline">{state.activeProfile}</p>
                         <Button variant="link" className="text-xs h-auto p-0 text-primary" onClick={onProfileSwitchClick}>Switch Profile</Button>

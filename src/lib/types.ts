@@ -177,6 +177,5 @@ export interface VehicleState {
   drivingStyle: string;
   drivingStyleRecommendations: string[];
   fatigueWarning: string | null;
+  fatigueLevel: number;
 }
-
-    

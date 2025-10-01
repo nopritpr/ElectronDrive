@@ -40,7 +40,7 @@ export function useVehicleSimulation() {
     const currentState = stateRef.current;
     if (Date.now() - lastFatigueCheck.current < 20000) return; 
     if (currentState.speed < 10) { 
-        if (currentState.fatigueWarning) setState({ fatigueWarning: null });
+        if (currentState.fatigueWarning) setState({ fatigueWarning: null, fatigueLevel: 0 });
         return;
     };
 
@@ -53,6 +53,8 @@ export function useVehicleSimulation() {
             harshBrakingEvents: currentState.styleMetrics.harshBrakes,
             harshAccelerationEvents: currentState.styleMetrics.harshAccel,
         });
+
+        setState({ fatigueLevel: fatigueResult.isFatigued ? fatigueResult.confidence : 1 - fatigueResult.confidence });
 
         if (fatigueResult.isFatigued && fatigueResult.confidence > 0.7) {
             setState({ fatigueWarning: fatigueResult.reasoning });
@@ -428,9 +430,3 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
-
-    
-
-    
-
-    
