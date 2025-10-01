@@ -224,14 +224,19 @@ export function useVehicleSimulation() {
     }
   };
 
-  const addProfile = (profileName: string) => {
+  const addProfile = (profileName: string, profileDetails: Omit<Profile, 'driveMode' | 'acTemp'>) => {
     const currentState = stateRef.current;
     if (profileName && !currentState.profiles[profileName]) {
-        const newProfiles = { ...currentState.profiles, [profileName]: { driveMode: 'Eco', acTemp: 22 } as Profile};
+        const newProfile: Profile = {
+            ...profileDetails,
+            driveMode: 'Eco',
+            acTemp: 22,
+        };
+        const newProfiles = { ...currentState.profiles, [profileName]: newProfile };
         setState({ profiles: newProfiles });
         toast({ title: `Profile ${profileName} added.`});
     }
-  }
+  };
 
   const deleteProfile = (profileName: string) => {
     const currentState = stateRef.current;

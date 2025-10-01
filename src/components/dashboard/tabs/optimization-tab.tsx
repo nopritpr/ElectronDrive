@@ -30,9 +30,9 @@ const InsightItem = ({ icon, title, description, type }: { icon: React.ReactNode
 );
 
 const ProfileDetail = ({ label, value }: { label: string, value: string | number }) => (
-    <div className="text-xs">
-        <span className="text-muted-foreground">{label}: </span>
-        <span className="font-mono">{value}</span>
+    <div className="flex justify-between items-center text-xs py-1.5 border-b border-border/50">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono font-medium">{value}</span>
     </div>
 );
 
@@ -91,15 +91,13 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
             </Card>
             
             <Card className="p-4">
-                <CardHeader>
+                <CardHeader className="flex-row items-center justify-between p-0 mb-2">
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><User className="w-4 h-4"/>User Profile</CardTitle>
+                    <Button variant="link" className="text-xs h-auto p-0 text-primary" onClick={onProfileSwitchClick}>Switch / Manage</Button>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                    <div className="flex justify-between items-center">
-                        <p className="font-bold font-headline">{state.activeProfile}</p>
-                        <Button variant="link" className="text-xs h-auto p-0 text-primary" onClick={onProfileSwitchClick}>Switch Profile</Button>
-                    </div>
-                    <div className="space-y-1 border-t pt-2">
+                <CardContent className="p-0">
+                    <div className="space-y-1">
+                        <ProfileDetail label="Name" value={state.activeProfile} />
                         <ProfileDetail label="User ID" value={activeProfileData?.id || 'N/A'} />
                         <ProfileDetail label="Phone" value={activeProfileData?.phone || 'N/A'} />
                         <ProfileDetail label="Age" value={activeProfileData?.age || 'N/A'} />
