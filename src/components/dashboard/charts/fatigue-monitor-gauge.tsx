@@ -29,7 +29,7 @@ export default function FatigueMonitorGauge({ fatigueLevel }: FatigueMonitorGaug
 
   return (
     <div className="w-full h-full relative flex items-center justify-center">
-      <ChartContainer config={chartConfig} className="w-full h-full aspect-square max-h-[120px]">
+      <ChartContainer config={chartConfig} className="w-full h-full aspect-square max-h-[100px]">
         <PieChart>
           <Pie
             data={data}

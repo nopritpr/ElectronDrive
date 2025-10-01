@@ -90,7 +90,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                         <DynamicRangeChart state={state} />
                     </CardContent>
                 </div>
-                <div className="flex flex-col col-span-1 gap-4">
+                <div className="flex flex-col col-span-1 gap-4 p-4 md:p-0 md:pr-4 md:pb-4">
                      <Card className="flex-1">
                         <CardHeader>
                             <CardTitle className="text-sm font-headline flex items-center gap-2"><span className="font-bold text-base">₹</span>Cost Savings</CardTitle>
@@ -105,7 +105,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                             <CardTitle className="text-sm font-headline flex items-center gap-2">Fatigue Monitor</CardTitle>
                             <p className="text-xs text-muted-foreground -mt-2">LSTM Anomaly detection.</p>
                         </CardHeader>
-                        <CardContent className="flex-grow flex items-center justify-center">
+                        <CardContent className="flex-grow flex items-center justify-center min-h-0">
                             <FatigueMonitorGauge fatigueLevel={state.fatigueLevel} />
                         </CardContent>
                     </Card>
