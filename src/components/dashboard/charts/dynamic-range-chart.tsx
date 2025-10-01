@@ -34,13 +34,18 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
     const loadPenalty = totalWeight > 0 ? (weights.load / totalWeight) * totalPenalty : 0;
     
     const data = [
-        { name: 'Ideal', value: idealRange, fill: 'hsl(var(--chart-2))' },
-        { name: 'A/C', value: -acPenalty, fill: 'hsl(var(--chart-5))' },
-        { name: 'Temp', value: -tempPenalty, fill: 'hsl(var(--chart-5))' },
-        { name: 'Drive Mode', value: -driveModePenalty, fill: 'hsl(var(--chart-5))' },
-        { name: 'Load', value: -loadPenalty, fill: 'hsl(var(--chart-5))' },
-        { name: 'Predicted', value: predictedRange, fill: 'hsl(var(--primary))' },
+        { name: 'Ideal', value: idealRange, label: `${Math.round(idealRange)} km` },
+        { name: 'A/C', value: -acPenalty, label: `-${Math.round(acPenalty)} km` },
+        { name: 'Temp', value: -tempPenalty, label: `-${Math.round(tempPenalty)} km` },
+        { name: 'Drive Mode', value: -driveModePenalty, label: `-${Math.round(driveModePenalty)} km` },
+        { name: 'Load', value: -loadPenalty, label: `-${Math.round(loadPenalty)} km` },
+        { name: 'Predicted', value: predictedRange, label: `${Math.round(predictedRange)} km` },
     ];
+    
+    const chartData = data.map(item => ({
+      ...item,
+      fill: item.value >= 0 ? (item.name === 'Predicted' ? 'hsl(var(--primary))' : 'hsl(var(--chart-2))') : 'hsl(var(--chart-5))',
+    }));
 
 
   const chartConfig = {};
@@ -48,7 +53,7 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
   return (
     <ChartContainer config={chartConfig} className="w-full h-full">
       <BarChart
-        data={data}
+        data={chartData}
         layout="vertical"
         margin={{ left: 10, right: 50 }}
       >
@@ -71,18 +76,10 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
         />
         <Bar dataKey="value" radius={5}>
             <LabelList
-                dataKey="value"
+                dataKey="label"
                 position="right"
                 offset={8}
-                formatter={(value: number) => {
-                  if (value === null || value === undefined) {
-                    return null;
-                  }
-                  const numValue = Number(value);
-                  const roundedValue = Math.round(numValue);
-                  
-                  return `${roundedValue} km`;
-                }}
+                formatter={(value: string) => value}
                 className="fill-foreground font-semibold text-xs"
             />
         </Bar>
