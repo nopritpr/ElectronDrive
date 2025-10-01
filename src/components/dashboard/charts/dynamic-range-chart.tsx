@@ -15,25 +15,32 @@ interface DynamicRangeChartProps {
 }
 
 export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
-    const idealRange = 450 * (state.batterySOC / 100);
+    const idealRange = state.initialRange * (state.batterySOC / 100);
+    const predictedRange = state.predictedDynamicRange;
+    const totalPenalty = idealRange > predictedRange ? idealRange - predictedRange : 0;
+
+    // Apportion the total penalty based on which factors are active
+    const activePenalties: (keyof typeof rangePenalties)[] = [];
+    if (state.acOn) activePenalties.push('ac');
+    if (Math.abs(22 - state.outsideTemp) > 2) activePenalties.push('temp');
+    if (state.driveMode !== 'Eco') activePenalties.push('driveMode');
+    if (state.passengers > 1 || state.goodsInBoot) activePenalties.push('load');
+
+    const penaltyShare = activePenalties.length > 0 ? totalPenalty / activePenalties.length : 0;
 
     const rangePenalties = {
-        ac: state.acOn ? idealRange * 0.05 : 0,
-        temp: Math.abs(22 - state.outsideTemp) * 1.5, // Simple temp model
-        passengers: idealRange * (state.passengers - 1) * 0.002,
-        goods: state.goodsInBoot ? idealRange * 0.02 : 0,
-        driveMode: state.driveMode !== 'Eco' ? idealRange * (1 - (420 / 450)) : 0,
+        ac: activePenalties.includes('ac') ? penaltyShare : 0,
+        temp: activePenalties.includes('temp') ? penaltyShare : 0,
+        driveMode: activePenalties.includes('driveMode') ? penaltyShare : 0,
+        load: activePenalties.includes('load') ? penaltyShare : 0,
     };
-    
-    const totalPenalty = Object.values(rangePenalties).reduce((sum, val) => sum + val, 0);
-    const predictedRange = Math.max(0, idealRange - totalPenalty);
 
     const data = [
         { name: 'Ideal', value: idealRange, fill: 'hsl(var(--chart-2))' },
         { name: 'A/C', value: -rangePenalties.ac, fill: 'hsl(var(--chart-5))' },
         { name: 'Temp', value: -rangePenalties.temp, fill: 'hsl(var(--chart-5))' },
         { name: 'Drive Mode', value: -rangePenalties.driveMode, fill: 'hsl(var(--chart-5))' },
-        { name: 'Load', value: -(rangePenalties.passengers + rangePenalties.goods), fill: 'hsl(var(--chart-5))' },
+        { name: 'Load', value: -rangePenalties.load, fill: 'hsl(var(--chart-5))' },
         { name: 'Predicted', value: predictedRange, fill: 'hsl(var(--primary))' },
     ];
 
@@ -70,7 +77,7 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
                 dataKey="value"
                 position="right"
                 offset={8}
-                formatter={(value: number) => `${Math.round(value)} km`}
+                formatter={(value: number) => value !== 0 ? `${Math.round(value)} km` : ''}
                 className="fill-foreground font-semibold text-xs"
             />
         </Bar>
