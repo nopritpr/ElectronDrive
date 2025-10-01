@@ -91,7 +91,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                     </CardContent>
                 </div>
                 <div className="flex flex-col col-span-1 gap-4 p-4 md:p-0 md:pr-4 md:pb-4">
-                     <Card>
+                     <Card className="flex-1">
                         <CardHeader>
                             <CardTitle className="text-sm font-headline flex items-center gap-2"><span className="font-bold text-base">₹</span>Cost Savings</CardTitle>
                         </CardHeader>
@@ -100,7 +100,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                             <p className="text-xs text-muted-foreground">vs. ICE car</p>
                         </CardContent>
                     </Card>
-                     <Card>
+                     <Card className="flex-1">
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-headline flex items-center gap-2">Fatigue Monitor</CardTitle>
                             <p className="text-xs text-muted-foreground -mt-2">LSTM Anomaly detection.</p>
