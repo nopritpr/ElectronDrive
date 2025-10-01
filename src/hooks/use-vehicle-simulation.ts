@@ -69,7 +69,7 @@ export function useVehicleSimulation() {
     }
   }, []);
 
-  const callAI = useCallback(async () => {
+  const callAI = async () => {
     const currentState = stateRef.current;
      if (
       currentState.batterySOC === null ||
@@ -82,7 +82,6 @@ export function useVehicleSimulation() {
 
     if (Date.now() - lastAiCall.current < 10000) return;
     lastAiCall.current = Date.now();
-
 
     try {
       const [rec, style, range, soh] = await Promise.all([
@@ -139,7 +138,7 @@ export function useVehicleSimulation() {
     } catch (error) {
       console.error('AI Flow error:', error);
     }
-  }, []);
+  };
 
   const setDriveMode = (mode: DriveMode) => {
     setState({ driveMode: mode });

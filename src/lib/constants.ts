@@ -33,7 +33,17 @@ export const defaultState: VehicleState = {
   aggressiveDrivingCounter: 0,
   stabilizerEnabled: true,
   rawPredictedRange: null,
-  sohHistory: [],
+  sohHistory: [
+    {
+      odometer: 0,
+      cycleCount: 0,
+      avgBatteryTemp: 25,
+      soh: 100,
+      ecoPercent: 100,
+      cityPercent: 0,
+      sportsPercent: 0,
+    },
+  ],
   packNominalCapacity_kWh: 75,
   packUsableFraction: 0.95,
   packSOH: 100,
