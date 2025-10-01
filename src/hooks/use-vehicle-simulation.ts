@@ -185,8 +185,10 @@ export function useVehicleSimulation() {
     const newAccelerationHistory = [physics.acceleration, ...state.accelerationHistory].slice(0, 50);
     const newPowerHistory = [totalPower_kW, ...state.powerHistory].slice(0,50);
     const newDriveModeHistory = [state.driveMode, ...state.driveModeHistory].slice(0, 50);
-    const newWhPerKm = newSpeed > 1 ? (totalPower_kW * 1000) / newSpeed : 0;
     
+    const currentWhPerKm = newSpeed > 1 ? (totalPower_kW * 1000) / newSpeed : 0;
+    const newWhPerKm = (state.recentWhPerKm * 0.95) + (currentWhPerKm * 0.05);
+
     const recentWhPerKmWindow = [isFinite(newWhPerKm) && newWhPerKm > 0 ? newWhPerKm : state.recentWhPerKm, ...state.recentWhPerKmWindow].slice(0,100);
     const recentWhPerKm = recentWhPerKmWindow.reduce((a, b) => a + b, 0) / recentWhPerKmWindow.length;
     
