@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
-import type { VehicleState, DriveMode, Profile, ChargingLog, SohHistoryEntry } from '@/lib/types';
+import type { VehicleState, DriveMode, Profile, ChargingLog, SohHistoryEntry, RangePenalties } from '@/lib/types';
 import { defaultState, EV_CONSTANTS, MODE_SETTINGS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { getDrivingRecommendation } from '@/ai/flows/adaptive-driving-recommendations';
@@ -284,6 +284,73 @@ export function useVehicleSimulation() {
         toast({ title: `Profile ${profileName} deleted.`});
     }
   };
+  
+  const calculateDynamicRange = useCallback(() => {
+    const currentState = stateRef.current;
+    const idealRange = currentState.initialRange * (currentState.batterySOC / 100);
+
+    const penalties: RangePenalties = {
+      ac: 0,
+      load: 0,
+      temp: 0,
+      driveMode: 0,
+    };
+
+    let totalPenaltyFactor = 1;
+
+    // A/C penalty
+    if (currentState.acOn) {
+      const acFactor = 1.1; // 10% penalty
+      totalPenaltyFactor *= acFactor;
+      penalties.ac = idealRange * (1 - 1/acFactor);
+    }
+    
+    // Load penalty
+    const passengerFactor = 1 + (currentState.passengers - 1) * 0.015; // 1.5% per passenger
+    const goodsFactor = currentState.goodsInBoot ? 1.03 : 1; // 3% for goods
+    const loadFactor = passengerFactor * goodsFactor;
+    if (loadFactor > 1) {
+      totalPenaltyFactor *= loadFactor;
+      penalties.load = idealRange * (1 - 1/loadFactor);
+    }
+
+    // Temperature penalty
+    const tempDiff = Math.abs(22 - currentState.outsideTemp);
+    if (tempDiff > 5) {
+      const tempFactor = 1 + (tempDiff - 5) * 0.008; // 0.8% penalty for each degree beyond 5 degree difference from optimal 22C
+      totalPenaltyFactor *= tempFactor;
+      penalties.temp = idealRange * (1 - 1/tempFactor);
+    }
+    
+    // Drive Mode penalty
+    let modeFactor = 1;
+    if (currentState.driveMode === 'City') {
+      modeFactor = 1.07; // 7% penalty
+    } else if (currentState.driveMode === 'Sports') {
+      modeFactor = 1.18; // 18% penalty
+    }
+    if (modeFactor > 1) {
+      totalPenaltyFactor *= modeFactor;
+      penalties.driveMode = idealRange * (1 - 1/modeFactor);
+    }
+    
+    const predictedRange = idealRange / totalPenaltyFactor;
+    
+    // Distribute the total penalty based on each factor's contribution
+    const totalCalculatedPenalty = penalties.ac + penalties.load + penalties.temp + penalties.driveMode;
+    const totalActualPenalty = Math.max(0, idealRange - predictedRange);
+
+    if (totalCalculatedPenalty > 0) {
+      const distributionRatio = totalActualPenalty / totalCalculatedPenalty;
+      penalties.ac *= distributionRatio;
+      penalties.load *= distributionRatio;
+      penalties.temp *= distributionRatio;
+      penalties.driveMode *= distributionRatio;
+    }
+    
+    setState({ predictedDynamicRange: predictedRange, rangePenalties: penalties });
+
+  }, []);
 
   const updateVehicleState = useCallback(() => {
     const prevState = stateRef.current;
@@ -418,6 +485,12 @@ export function useVehicleSimulation() {
     setState(newState);
     requestRef.current = requestAnimationFrame(updateVehicleState);
   }, []);
+
+  // Recalculate dynamic range whenever dependencies change
+  useEffect(() => {
+    calculateDynamicRange();
+  }, [state.batterySOC, state.acOn, state.driveMode, state.passengers, state.goodsInBoot, state.outsideTemp, calculateDynamicRange]);
+
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

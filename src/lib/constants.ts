@@ -91,6 +91,12 @@ export const defaultState: VehicleState = {
   drivingStyleRecommendations: [],
   fatigueWarning: null,
   fatigueLevel: 0,
+  rangePenalties: {
+    ac: 0,
+    load: 0,
+    temp: 0,
+    driveMode: 0,
+  }
 };
 
 export const EV_CONSTANTS = {

@@ -106,6 +106,13 @@ export interface WeatherData {
   name: string;
 }
 
+export interface RangePenalties {
+  ac: number;
+  load: number;
+  temp: number;
+  driveMode: number;
+}
+
 export interface VehicleState {
   odometer: number;
   tripA: number;
@@ -182,4 +189,5 @@ export interface VehicleState {
   drivingStyleRecommendations: string[];
   fatigueWarning: string | null;
   fatigueLevel: number;
+  rangePenalties: RangePenalties;
 }

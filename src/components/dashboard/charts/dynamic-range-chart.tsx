@@ -16,22 +16,8 @@ interface DynamicRangeChartProps {
 
 export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
     const idealRange = state.initialRange * (state.batterySOC / 100);
-    const predictedRange = state.predictedDynamicRange;
-    const totalPenalty = Math.max(0, idealRange - predictedRange);
-
-    const weights = {
-      ac: state.acOn ? 0.3 : 0,
-      temp: Math.abs(22 - state.outsideTemp) > 5 ? 0.2 : 0,
-      driveMode: state.driveMode === 'Sports' ? 0.4 : (state.driveMode === 'City' ? 0.2 : 0),
-      load: (state.passengers > 1 || state.goodsInBoot) ? 0.1 : 0,
-    };
-
-    const totalWeight = Object.values(weights).reduce((sum, weight) => sum + weight, 0);
-
-    const acPenalty = totalWeight > 0 ? (weights.ac / totalWeight) * totalPenalty : 0;
-    const tempPenalty = totalWeight > 0 ? (weights.temp / totalWeight) * totalPenalty : 0;
-    const driveModePenalty = totalWeight > 0 ? (weights.driveMode / totalWeight) * totalPenalty : 0;
-    const loadPenalty = totalWeight > 0 ? (weights.load / totalWeight) * totalPenalty : 0;
+    const { ac: acPenalty, load: loadPenalty, temp: tempPenalty, driveMode: driveModePenalty } = state.rangePenalties;
+    const predictedRange = idealRange - acPenalty - loadPenalty - tempPenalty - driveModePenalty;
     
     const data = [
         { name: 'Ideal', value: idealRange, label: `${Math.round(idealRange)} km` },
@@ -44,6 +30,8 @@ export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
     
     const chartData = data.map(item => ({
       ...item,
+      value: Math.round(item.value), // Ensure values are integers for clean charting
+      label: item.value !== 0 ? item.label : '', // Don't show label for zero-penalty items
       fill: item.value >= 0 ? (item.name === 'Predicted' ? 'hsl(var(--primary))' : 'hsl(var(--chart-2))') : 'hsl(var(--chart-5))',
     }));
 
