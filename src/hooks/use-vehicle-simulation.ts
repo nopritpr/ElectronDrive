@@ -484,12 +484,12 @@ export function useVehicleSimulation() {
     requestRef.current = requestAnimationFrame(updateVehicleState);
   }, []);
 
-  // Continuous Idle Prediction
+  // Definitive fix for Idle Drain Prediction
   useEffect(() => {
-    // Trigger initial prediction immediately
+    // Run prediction immediately on load
     triggerIdlePrediction();
-    
-    // Then trigger every 10 seconds
+
+    // Then run every 10 seconds
     const intervalId = setInterval(() => {
       triggerIdlePrediction();
     }, 10000); 
