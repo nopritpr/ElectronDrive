@@ -265,7 +265,6 @@ export function useVehicleSimulation() {
     };
 
     try {
-        console.log("Requesting driving recommendation with input:", recInput);
         const rec = await getDrivingRecommendation(recInput);
         setAiState({
             drivingRecommendation: rec.recommendation,
@@ -283,7 +282,6 @@ export function useVehicleSimulation() {
         ecoScore: currentState.ecoScore,
     };
     try {
-        console.log("Requesting driving style analysis with input:", styleInput);
         const style = await analyzeDrivingStyle(styleInput);
         setAiState({
             drivingStyle: style.drivingStyle,
@@ -301,7 +299,6 @@ export function useVehicleSimulation() {
         harshAccelerationEvents: currentState.styleMetrics.harshAccel,
     };
     try {
-        console.log("Requesting driver fatigue monitoring with input:", fatigueInput);
         const fatigueResult = await monitorDriverFatigue(fatigueInput);
         let newFatigueLevel = fatigueResult.isFatigued ? fatigueResult.confidence : 1 - fatigueResult.confidence;
         let newFatigueWarning = currentAiState.fatigueWarning;
@@ -322,10 +319,11 @@ export function useVehicleSimulation() {
         currentBatterySOC: currentState.batterySOC,
         acOn: currentState.acOn,
         acTemp: currentState.acTemp,
-        outsideTemp: currentState.outsideTemp
+        outsideTemp: currentState.outsideTemp,
+        passengers: currentState.passengers,
+        goodsInBoot: currentState.goodsInBoot,
     };
     try {
-        console.log("Requesting idle drain estimation with input:", drainInput);
         const drainResult = await predictIdleDrain(drainInput);
         setAiState({ idleDrainPrediction: drainResult });
     } catch (error) {

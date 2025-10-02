@@ -3,7 +3,7 @@
 
 /**
  * @fileOverview An AI agent that predicts battery drain over the next 8 hours while the vehicle is idle.
- * This model considers various factors like A/C usage and ambient temperature.
+ * This model considers various factors like A/C usage, passenger load, and ambient temperature.
  *
  * - predictIdleDrain - A function that predicts idle battery drain.
  * - PredictiveIdleDrainInput - The input type for the predictIdleDrain function.
@@ -19,6 +19,8 @@ const PredictiveIdleDrainInputSchema = z.object({
   acOn: z.boolean().describe('Whether the A/C is currently active.'),
   acTemp: z.number().describe('The A/C temperature setting in Celsius.'),
   outsideTemp: z.number().describe('The current outside temperature in Celsius.'),
+  passengers: z.number().describe('Number of passengers in the vehicle.'),
+  goodsInBoot: z.boolean().describe('Whether there are goods in the boot.'),
 });
 export type PredictiveIdleDrainInput = z.infer<typeof PredictiveIdleDrainInputSchema>;
 
@@ -48,20 +50,24 @@ const predictiveIdleDrainPrompt = ai.definePrompt({
 
 You must account for the following factors:
 1.  **Base Phantom Drain**: The vehicle has a constant base phantom drain of 0.2% per hour for its essential systems (BMS, connectivity).
-2.  **A/C Power Consumption**: The A/C system draws significant power. Its consumption is 1.5 kW. The drain depends on the temperature difference between the outside and the A/C setting. For every 5 degrees of difference, the A/C runs 50% of the time. For example, if it's 30°C outside and the A/C is set to 20°C, the difference is 10°C, so the A/C will run 100% of the time. If the difference is 2°C, it will run 20% of the time.
+2.  **Climate Control**: The climate system works to maintain the A/C temperature setting. Its power consumption depends on the temperature difference between the outside and the A/C setting. The power draw is 1.5 kW. The system's duty cycle (how often it runs) is proportional to the temperature difference. For every 5 degrees of difference, the duty cycle increases by 50%. For example, if it's 30°C outside and the A/C is set to 20°C, the difference is 10°C, so the system will run 100% of the time. If the difference is 2°C, it will run 20% of the time. This applies whether heating or cooling. If A/C is off, this is 0.
 3.  **Battery Capacity**: The vehicle has a 75 kWh battery pack.
 
 Current Vehicle & Environmental Data:
 - Starting SOC: {{currentBatterySOC}}%
 - A/C Status: {{#if acOn}}On ({{acTemp}}°C){{else}}Off{{/if}}
 - Outside Temperature: {{outsideTemp}}°C
+- Passengers: {{passengers}}
+- Goods in Boot: {{goodsInBoot}}
+
+The number of passengers and goods in the boot do not affect idle drain, as they only add mass which is irrelevant when stationary.
 
 Calculate the total hourly SOC drop based on these factors and provide a list of the predicted SOC for each of the next 8 hours. The result must be an array of 8 hourly predictions.
 
 Example Calculation for one hour:
 - Base drain: 0.2%
-- A/C drain: If A/C is on, calculate its duty cycle based on temperature difference. A/C power is 1.5 kW. The percentage drop per hour is (1.5 kW * duty_cycle) / 75 kWh * 100.
-- Total hourly drop = Base drain + A/C drain.
+- Climate Control drain: If A/C is on, calculate its duty cycle based on temperature difference. A/C power is 1.5 kW. The percentage drop per hour is (1.5 kW * duty_cycle) / 75 kWh * 100.
+- Total hourly drop = Base drain + Climate Control drain.
 
 Return the result as a JSON object with the 'hourlyPrediction' key, containing an array of 8 objects, each with 'hour' and 'soc'.`,
 });
