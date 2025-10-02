@@ -10,7 +10,6 @@ import { analyzeDrivingStyle, type AnalyzeDrivingStyleInput } from '@/ai/flows/d
 import { predictIdleDrain, type PredictiveIdleDrainInput } from '@/ai/flows/predictive-idle-drain';
 import { monitorDriverFatigue, type DriverFatigueInput } from '@/ai/flows/driver-fatigue-monitor';
 import { getAcUsageImpact, type AcUsageImpactInput } from '@/ai/flows/ac-usage-impact-forecaster';
-import { googleAI } from '@genkit-ai/google-genai';
 
 const keys: Record<string, boolean> = {
   ArrowUp: false,
@@ -58,17 +57,42 @@ export function useVehicleSimulation() {
     aiStateRef.current = aiState;
   }, [aiState]);
 
+  const isAcImpactRunning = useRef(false);
+  const triggerAcImpactForecast = useCallback(async (overrideState: Partial<VehicleState> = {}) => {
+      if (isAcImpactRunning.current) return;
+      isAcImpactRunning.current = true;
+
+      try {
+          const currentState = { ...vehicleStateRef.current, ...overrideState };
+          const acImpactInput: AcUsageImpactInput = {
+              acOn: currentState.acOn,
+              acTemp: currentState.acTemp,
+              outsideTemp: currentState.outsideTemp,
+              recentWhPerKm: currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : 160,
+          };
+          const acImpactResult = await getAcUsageImpact(acImpactInput);
+          setAiState(prevState => ({...prevState, acUsageImpact: acImpactResult }));
+      } catch (error) {
+          console.error("Error calling getAcUsageImpact:", error);
+          setAiState(prevState => ({...prevState, acUsageImpact: null}));
+      } finally {
+          isAcImpactRunning.current = false;
+      }
+  }, []);
 
   const setDriveMode = (mode: DriveMode) => {
     setVehicleState({ driveMode: mode, driveModeHistory: [mode, ...vehicleStateRef.current.driveModeHistory].slice(0, 50) as DriveMode[] });
   };
 
   const toggleAC = () => {
-     setVehicleState({ acOn: !vehicleStateRef.current.acOn });
+     const newAcOn = !vehicleStateRef.current.acOn;
+     setVehicleState({ acOn: newAcOn });
+     triggerAcImpactForecast({ acOn: newAcOn });
   };
 
   const setAcTemp = (temp: number) => {
     setVehicleState({ acTemp: temp });
+    triggerAcImpactForecast({ acTemp: temp });
   }
 
   const setPassengers = (count: number) => {
@@ -244,30 +268,6 @@ export function useVehicleSimulation() {
     } finally {
         isIdlePredictionRunning.current = false;
     }
-  }, []);
-
-
-  const isAcImpactRunning = useRef(false);
-  const triggerAcImpactForecast = useCallback(async () => {
-      if (isAcImpactRunning.current) return;
-      isAcImpactRunning.current = true;
-
-      try {
-          const currentState = vehicleStateRef.current;
-          const acImpactInput: AcUsageImpactInput = {
-              acOn: currentState.acOn,
-              acTemp: currentState.acTemp,
-              outsideTemp: currentState.outsideTemp,
-              recentWhPerKm: currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : 160,
-          };
-          const acImpactResult = await getAcUsageImpact(acImpactInput);
-          setAiState(prevState => ({...prevState, acUsageImpact: acImpactResult }));
-      } catch (error) {
-          console.error("Error calling getAcUsageImpact:", error);
-          setAiState(prevState => ({...prevState, acUsageImpact: null}));
-      } finally {
-          isAcImpactRunning.current = false;
-      }
   }, []);
 
   const idleStartTimeRef = useRef<number | null>(null);
