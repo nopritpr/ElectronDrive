@@ -528,7 +528,7 @@ export function useVehicleSimulation() {
       clearInterval(sohTimer);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [callAI, callFatigueMonitor, callSohForecast, updateVehicleState]);
 
   return {
     state,
@@ -547,3 +547,5 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    
