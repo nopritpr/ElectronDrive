@@ -98,13 +98,15 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                 </CardContent>
             </Card>
             
-            <Card className="flex flex-col">
-                <CardHeader>
-                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Hourglass className="w-4 h-4"/>Predictive Idle Drain</CardTitle>
-                    <p className="text-xs text-muted-foreground -mt-2">Predicts battery loss over 8 hours while idle.</p>
+            <Card className="flex flex-col items-center justify-center">
+                <CardHeader className="items-center">
+                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Leaf className="w-4 h-4"/>Green Score</CardTitle>
                 </CardHeader>
-                <CardContent className="p-0 flex-grow min-h-0">
-                    <IdleDrainChart data={state.idleDrainPrediction} />
+                <CardContent className="text-center">
+                    <p className="text-5xl font-bold text-green-400 font-headline">
+                        {greenScore.toFixed(1)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">kg CO₂ saved vs ICE</p>
                 </CardContent>
             </Card>
 
@@ -123,16 +125,13 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                 </CardContent>
             </Card>
 
-            <Card className="col-span-3 md:col-span-2 flex flex-col items-center justify-center">
-                <CardHeader className="items-center">
-                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Leaf className="w-4 h-4"/>Green Score</CardTitle>
+            <Card className="col-span-3 md:col-span-2 flex flex-col">
+                <CardHeader>
+                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Hourglass className="w-4 h-4"/>Predictive Idle Drain</CardTitle>
+                    <p className="text-xs text-muted-foreground -mt-2">Predicts battery loss over 8 hours while idle.</p>
                 </CardHeader>
-                <CardContent className="text-center">
-                    <p className="text-5xl font-bold text-green-400 font-headline">
-                        {greenScore.toFixed(1)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">kg CO₂ saved vs ICE</p>
-                    <p className="text-xs text-muted-foreground text-center mt-2">Calculated based on odometer reading vs. average emissions of a gasoline car.</p>
+                <CardContent className="p-0 flex-grow min-h-0">
+                    <IdleDrainChart data={state.idleDrainPrediction} />
                 </CardContent>
             </Card>
 
