@@ -28,32 +28,12 @@ function aiStateReducer(state: AiState, action: Partial<AiState>): AiState {
 
 const generateInitialSohHistory = (): SohHistoryEntry[] => {
     const entries: SohHistoryEntry[] = [];
-    const startDate = new Date();
-    startDate.setFullYear(startDate.getFullYear() - 4); // 4 years of history
-    let odometer = 0;
-    let cycleCount = 0;
-    let soh = 100;
-
-    for (let i = 0; i < 48; i++) { // 48 months
-        odometer += 1250 + (Math.random() - 0.5) * 500; // ~15,000 km/year
-        cycleCount += (1250 / 400) * 0.9; // Approximate cycles
-        soh -= 0.08 + (Math.random() - 0.5) * 0.02; // Degradation
-        
-        entries.push({
-            odometer: Math.round(odometer),
-            cycleCount: Math.round(cycleCount),
-            avgBatteryTemp: 25 + (Math.random() - 0.5) * 5,
-            soh: Math.round(soh * 100) / 100,
-            ecoPercent: 60 + Math.random() * 10,
-            cityPercent: 30 - Math.random() * 5,
-            sportsPercent: 10 - Math.random() * 5,
-        });
-    }
     return entries;
 };
 
 const initialState: VehicleState = {
     ...defaultState,
+    odometer: 0,
     sohHistory: generateInitialSohHistory(),
 };
 
@@ -261,109 +241,34 @@ export function useVehicleSimulation() {
         setAiState(prevState => ({ ...prevState, idleDrainPrediction: drainResult }));
     } catch (error) {
         console.error("Error calling predictIdleDrain:", error);
-        
-        const defaultPrediction: PredictiveIdleDrainOutput = {
-            hourlyPrediction: Array.from({ length: 8 }, (_, i) => ({
-                hour: i + 1,
-                soc: vehicleStateRef.current.batterySOC - 0.5 * (i + 1)
-            }))
-        };
-        setAiState(prevState => ({ ...prevState, idleDrainPrediction: defaultPrediction }));
-
     } finally {
         isIdlePredictionRunning.current = false;
     }
   }, []);
 
 
-  const refreshAiInsights = useCallback(async () => {
-    toast({ title: 'Refreshing AI Insights...', description: 'Please wait a moment.' });
-    const currentState = vehicleStateRef.current;
-    const currentAiState = aiStateRef.current;
+  const isAcImpactRunning = useRef(false);
+  const triggerAcImpactForecast = useCallback(async () => {
+      if (isAcImpactRunning.current) return;
+      isAcImpactRunning.current = true;
 
-    const recInput: DrivingRecommendationInput = {
-        drivingStyle: currentAiState.drivingStyle,
-        predictedRange: currentState.predictedDynamicRange,
-        batterySOC: currentState.batterySOC,
-        acUsage: currentState.acOn,
-        driveMode: currentState.driveMode,
-        outsideTemperature: currentState.outsideTemp,
-        acTemp: currentState.acTemp,
-        passengers: currentState.passengers,
-        accelerationHistory: currentState.accelerationHistory.slice(0, 10),
-        driveModeHistory: currentState.driveModeHistory.slice(0, 10) as string[],
-    };
-
-    try {
-        const rec = await getDrivingRecommendation(recInput);
-        setAiState(prevState => ({
-            ...prevState,
-            drivingRecommendation: rec.recommendation,
-            drivingRecommendationJustification: rec.justification,
-        }));
-    } catch (error) {
-        console.error("Error calling getDrivingRecommendation:", error);
-        setAiState(prevState => ({ ...prevState, drivingRecommendation: 'AI service unavailable.', drivingRecommendationJustification: null }));
-    }
-
-    const styleInput: AnalyzeDrivingStyleInput = {
-        speedHistory: currentState.speedHistory,
-        accelerationHistory: currentState.accelerationHistory,
-        driveModeHistory: currentState.driveModeHistory as string[],
-        ecoScore: currentState.ecoScore,
-    };
-    try {
-        const style = await analyzeDrivingStyle(styleInput);
-        setAiState(prevState => ({
-            ...prevState,
-            drivingStyle: style.drivingStyle,
-            drivingStyleRecommendations: style.recommendations,
-        }));
-    } catch (error) {
-        console.error("Error calling analyzeDrivingStyle:", error);
-        setAiState(prevState => ({...prevState, drivingStyle: 'Style analysis unavailable.', drivingStyleRecommendations: [] }));
-    }
-    
-    const fatigueInput: DriverFatigueInput = {
-        speedHistory: currentState.speedHistory.slice(0, 60),
-        accelerationHistory: currentState.accelerationHistory.slice(0, 60),
-        harshBrakingEvents: currentState.styleMetrics.harshBrakes,
-        harshAccelerationEvents: currentState.styleMetrics.harshAccel,
-    };
-    try {
-        const fatigueResult = await monitorDriverFatigue(fatigueInput);
-        let newFatigueLevel = fatigueResult.isFatigued ? fatigueResult.confidence : 1 - fatigueResult.confidence;
-        let newFatigueWarning = currentAiState.fatigueWarning;
-
-        if (fatigueResult.isFatigued && fatigueResult.confidence > 0.7) {
-            newFatigueWarning = fatigueResult.reasoning;
-            setVehicleState({ styleMetrics: { ...currentState.styleMetrics, harshBrakes: 0, harshAccel: 0 } });
-        } else if (currentAiState.fatigueWarning) {
-            newFatigueWarning = null;
-        }
-        setAiState(prevState => ({ ...prevState, fatigueLevel: newFatigueLevel, fatigueWarning: newFatigueWarning }));
-    } catch (error) {
-        console.error("Error calling monitorDriverFatigue:", error);
-        setAiState(prevState => ({ ...prevState, fatigueLevel: 0, fatigueWarning: null }));
-    }
-
-    const acImpactInput: AcUsageImpactInput = {
-        acOn: currentState.acOn,
-        acTemp: currentState.acTemp,
-        outsideTemp: currentState.outsideTemp,
-        recentWhPerKm: currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : 160,
-    };
-    try {
-        const acImpactResult = await getAcUsageImpact(acImpactInput);
-        setAiState(prevState => ({...prevState, acUsageImpact: acImpactResult }));
-    } catch (error) {
-        console.error("Error calling getAcUsageImpact:", error);
-        setAiState(prevState => ({...prevState, acUsageImpact: null}));
-    }
-
-
-    toast({ title: 'AI Insights Refreshed!', variant: 'default' });
-  }, [toast]);
+      try {
+          const currentState = vehicleStateRef.current;
+          const acImpactInput: AcUsageImpactInput = {
+              acOn: currentState.acOn,
+              acTemp: currentState.acTemp,
+              outsideTemp: currentState.outsideTemp,
+              recentWhPerKm: currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : 160,
+          };
+          const acImpactResult = await getAcUsageImpact(acImpactInput);
+          setAiState(prevState => ({...prevState, acUsageImpact: acImpactResult }));
+      } catch (error) {
+          console.error("Error calling getAcUsageImpact:", error);
+          setAiState(prevState => ({...prevState, acUsageImpact: null}));
+      } finally {
+          isAcImpactRunning.current = false;
+      }
+  }, []);
 
   const idleStartTimeRef = useRef<number | null>(null);
 
@@ -385,14 +290,12 @@ export function useVehicleSimulation() {
       if (idleStartTimeRef.current === null) {
         idleStartTimeRef.current = now;
       }
-      // Apply phantom drain - accelerated for demo
       const basePhantomDrainPerHour = 0.25; 
       let totalDrainPerHour = basePhantomDrainPerHour;
 
-      // Add A/C drain
       if (prevState.acOn) {
         const tempDiff = Math.abs(prevState.outsideTemp - prevState.acTemp);
-        const dutyCycle = Math.min(1, tempDiff / 10); // Simplified: 100% duty at 10C diff
+        const dutyCycle = Math.min(1, tempDiff / 10);
         const acPowerDrain_kW = EV_CONSTANTS.acPower_kW * dutyCycle;
         const acSocDrainPerHour = (acPowerDrain_kW / prevState.packNominalCapacity_kWh) * 100;
         totalDrainPerHour += acSocDrainPerHour;
@@ -441,9 +344,9 @@ export function useVehicleSimulation() {
     const netPower_kW = power_motor_kW + ac_power_kW;
 
     if (prevState.isCharging) {
-      const chargePerSecond = 1 / 5; // 1% SOC per 5 seconds
+      const chargePerSecond = 1 / 5;
       newSOC += chargePerSecond * timeDelta;
-    } else if (!isActuallyIdle) { // Only apply driving consumption if not idle
+    } else if (!isActuallyIdle) {
       const energyChange_kWh = netPower_kW * (timeDelta / 3600);
       const socChange = (energyChange_kWh / prevState.packNominalCapacity_kWh) * 100;
       newSOC -= socChange;
@@ -493,29 +396,26 @@ export function useVehicleSimulation() {
     requestRef.current = requestAnimationFrame(updateVehicleState);
   }, []);
 
-  // Effect for dynamic range calculation based on state changes
   useEffect(() => {
     calculateDynamicRange();
   }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, calculateDynamicRange]);
 
-  // Effect for idle prediction
   useEffect(() => {
-    const idleCheckInterval = setInterval(() => {
+    const aiInterval = setInterval(() => {
         const currentState = vehicleStateRef.current;
         const isIdle = currentState.speed === 0 && !currentState.isCharging;
         
         if (isIdle) {
-            // If it's been idle for 3 seconds, trigger the prediction
             if (idleStartTimeRef.current && (Date.now() - idleStartTimeRef.current > 3000)) {
                 triggerIdlePrediction();
             }
         }
-    }, 5000); // Check every 5 seconds
+        triggerAcImpactForecast();
+    }, 5000); // Run every 5 seconds
 
-    return () => clearInterval(idleCheckInterval);
-  }, [triggerIdlePrediction]);
+    return () => clearInterval(aiInterval);
+  }, [triggerIdlePrediction, triggerAcImpactForecast]);
 
-  // Effect for main simulation loop and keyboard listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key in keys) { e.preventDefault(); keys[e.key] = true; }
@@ -536,15 +436,12 @@ export function useVehicleSimulation() {
 
     // Initial AI calls
     triggerIdlePrediction();
-    refreshAiInsights();
-
-    const refreshInterval = setInterval(refreshAiInsights, 10000);
+    triggerAcImpactForecast();
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      clearInterval(refreshInterval);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -563,6 +460,5 @@ export function useVehicleSimulation() {
     deleteProfile,
     setPassengers,
     toggleGoodsInBoot,
-    refreshAiInsights,
   };
 }

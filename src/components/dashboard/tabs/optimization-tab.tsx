@@ -2,30 +2,16 @@
 'use client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import EcoScoreGauge from "../charts/eco-score-gauge";
 import type { VehicleState, AiState } from "@/lib/types";
-import { Leaf, User, BrainCircuit, BarChart, RefreshCw, Hourglass, Wind } from "lucide-react";
-import { useMemo, useState } from 'react';
+import { Leaf, User, BrainCircuit, BarChart, Wind } from "lucide-react";
 import IdleDrainChart from "../charts/idle-drain-chart";
 
 interface OptimizationTabProps {
     state: VehicleState & AiState;
     onProfileSwitchClick: () => void;
     onStabilizerToggle: () => void;
-    onRefreshInsights: () => void;
 }
-
-const InsightItem = ({ icon, title, description, justification }: { icon: React.ReactNode, title: string, description: string, justification?: string | null }) => (
-  <div className="p-3 rounded-lg flex items-start gap-3 text-sm bg-muted/50 border border-border/50">
-    <div className="text-primary mt-1">{icon}</div>
-    <div>
-      <h5 className="font-semibold text-foreground">{title}</h5>
-      <p className="text-muted-foreground leading-snug text-xs">{description}</p>
-      {justification && <p className="text-blue-400/80 leading-snug text-xs mt-1 italic">Justification: {justification}</p>}
-    </div>
-  </div>
-);
 
 const ProfileDetail = ({ label, value }: { label: string, value: string | number | undefined }) => (
     <div className="flex justify-between items-center text-xs py-1.5 border-b border-border/50">
@@ -55,14 +41,7 @@ const AcImpactDisplay = ({ impact, recommendation }: { impact: number, recommend
 };
 
 
-export default function OptimizationTab({ state, onProfileSwitchClick, onStabilizerToggle, onRefreshInsights }: OptimizationTabProps) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await onRefreshInsights();
-    setIsRefreshing(false);
-  }
+export default function OptimizationTab({ state, onProfileSwitchClick }: OptimizationTabProps) {
 
   const activeProfileData = state.profiles[state.activeProfile];
   
@@ -111,7 +90,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
 
             <Card className="col-span-3 md:col-span-2 row-start-2 md:row-start-auto flex flex-col">
                 <CardHeader>
-                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Hourglass className="w-4 h-4"/>Predictive Idle Drain</CardTitle>
+                    <CardTitle className="text-sm font-headline flex items-center gap-2"><BrainCircuit className="w-4 h-4"/>Predictive Idle Drain</CardTitle>
                     <p className="text-xs text-muted-foreground -mt-2">Predicts battery loss over 8 hours while idle. Updates automatically.</p>
                 </CardHeader>
                 <CardContent className="p-0 flex-grow min-h-0">
@@ -122,15 +101,12 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
             <Card className="p-4 flex flex-col">
                  <CardHeader className="p-0 pb-2 flex-row justify-between items-center">
                     <div>
-                        <CardTitle className="text-sm font-headline flex items-center gap-2"><BrainCircuit className="w-4 h-4"/>AI Insights</CardTitle>
-                         <p className="text-xs text-muted-foreground">Live analysis for tips & forecasts.</p>
+                        <CardTitle className="text-sm font-headline flex items-center gap-2"><Wind className="w-4 h-4"/>A/C Usage Impact</CardTitle>
+                         <p className="text-xs text-muted-foreground">Live forecast of range impact.</p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
-                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    </Button>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col p-0 pt-2 min-h-0">
-                     <div className="flex-grow space-y-2 overflow-y-auto pr-2">
+                     <div className="flex-grow">
                         {state.acUsageImpact ? (
                             <AcImpactDisplay 
                                 impact={state.acUsageImpact.rangeImpactKm} 
@@ -138,15 +114,9 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                             />
                         ) : (
                              <div className="p-3 rounded-lg flex items-center justify-center gap-3 text-sm bg-muted/50 border border-border/50 h-full">
-                                <p className="text-xs text-muted-foreground text-center">Click refresh to get A/C impact analysis.</p>
+                                <p className="text-xs text-muted-foreground text-center">Generating A/C impact analysis...</p>
                             </div>
                         )}
-                        <InsightItem
-                            icon={'💡'}
-                            title="Live Tip"
-                            description={state.drivingRecommendation}
-                            justification={state.drivingRecommendationJustification}
-                        />
                     </div>
                 </CardContent>
             </Card>

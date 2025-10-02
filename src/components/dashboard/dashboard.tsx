@@ -28,7 +28,6 @@ export default function Dashboard() {
     deleteProfile,
     setPassengers,
     toggleGoodsInBoot,
-    refreshAiInsights,
   } = useVehicleSimulation();
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -85,7 +84,6 @@ export default function Dashboard() {
               state={state}
               onProfileSwitchClick={() => setProfileModalOpen(true)}
               onStabilizerToggle={() => setState(prev => ({...prev, stabilizerEnabled: !prev.stabilizerEnabled}))}
-              onRefreshInsights={refreshAiInsights}
             />
           </TabsContent>
         </Tabs>
