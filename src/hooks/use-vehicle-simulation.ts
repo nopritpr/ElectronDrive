@@ -348,7 +348,7 @@ export function useVehicleSimulation() {
       penalties.driveMode *= distributionRatio;
     }
     
-    setState({ predictedDynamicRange: predictedRange, rangePenalties: penalties });
+    setState({ range: predictedRange, predictedDynamicRange: predictedRange, rangePenalties: penalties });
 
   }, []);
 
@@ -425,25 +425,6 @@ export function useVehicleSimulation() {
     }
     newSOC = Math.max(0, Math.min(100, newSOC));
     
-    // --- Range Calculation ---
-    const usableEnergy_kWh = (newSOC / 100) * prevState.packUsableFraction * prevState.packNominalCapacity_kWh;
-    
-    let modeBaseConsumption = EV_CONSTANTS.baseConsumption;
-    if (prevState.driveMode === 'City') {
-      modeBaseConsumption = EV_CONSTANTS.cityModeConsumption;
-    } else if (prevState.driveMode === 'Sports') {
-      modeBaseConsumption = EV_CONSTANTS.sportsModeConsumption;
-    }
-
-    let penaltyFactor = 1;
-    if (prevState.acOn) penaltyFactor *= 1.05;
-    if (prevState.goodsInBoot) penaltyFactor *= 1.02;
-    penaltyFactor *= (1 + (prevState.passengers - 1) * 0.002);
-
-    const finalConsumption_wh_km = modeBaseConsumption * penaltyFactor;
-
-    const newRange = (usableEnergy_kWh * 1000) / (finalConsumption_wh_km > 0 ? finalConsumption_wh_km : EV_CONSTANTS.baseConsumption);
-    
     const newOdometer = prevState.odometer + distanceTraveledKm;
 
     const instantPower = netPower_kW;
@@ -455,7 +436,6 @@ export function useVehicleSimulation() {
       tripB: prevState.activeTrip === 'B' ? prevState.tripB + distanceTraveledKm : prevState.tripB,
       power: instantPower,
       batterySOC: newSOC,
-      range: newRange,
       recentWhPerKm: instantPower > 0 && newSpeedKmh > 0 ? (instantPower * 1000) / newSpeedKmh : 0,
       lastUpdate: now,
       displaySpeed: prevState.displaySpeed + (newSpeedKmh - prevState.displaySpeed) * 0.1,
@@ -463,7 +443,7 @@ export function useVehicleSimulation() {
       accelerationHistory: [currentAcceleration, ...prevState.accelerationHistory].slice(0, 100),
       powerHistory: [instantPower, ...prevState.powerHistory].slice(0, 100),
       driveModeHistory: [prevState.driveMode, ...prevState.driveModeHistory].slice(0, 50) as DriveMode[],
-      ecoScore: prevState.ecoScore * 0.9995 + (100 - Math.abs(currentAcceleration) * 5 - (finalConsumption_wh_km > 0 ? (finalConsumption_wh_km / 10) : 0)) * 0.0005,
+      ecoScore: prevState.ecoScore * 0.9995 + (100 - Math.abs(currentAcceleration) * 5 - (prevState.recentWhPerKm > 0 ? (prevState.recentWhPerKm / 10) : 0)) * 0.0005,
       packSOH: Math.max(70, prevState.packSOH - Math.abs((prevState.batterySOC - newSOC) * 0.000001)),
       equivalentFullCycles: prevState.equivalentFullCycles + Math.abs((prevState.batterySOC - newSOC) / 100),
     };
