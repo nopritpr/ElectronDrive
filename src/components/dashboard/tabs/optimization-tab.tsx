@@ -124,11 +124,11 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
             </Card>
 
             <Card className="p-4">
-                 <CardHeader>
+                 <CardHeader className="p-4 pb-2">
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><BrainCircuit className="w-4 h-4"/>AI Insights & Controls</CardTitle>
                     <p className="text-xs text-muted-foreground -mt-2">Classification model analyzing driving behavior for tips.</p>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 p-4 pt-2">
                     <div className="text-xs grid grid-cols-1 gap-2 mb-4 h-32 overflow-y-auto pr-2">
                         {insights.length > 0 ? insights.map((insight, i) => (
                            <InsightItem key={i} {...insight} />
