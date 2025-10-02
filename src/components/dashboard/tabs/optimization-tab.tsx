@@ -166,3 +166,5 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
         </div>
     );
 }
+
+    

@@ -25,7 +25,7 @@ export default function IdleDrainChart({ data }: IdleDrainChartProps) {
     return (
       <div className="w-full h-full flex items-center justify-center">
         <p className="text-sm text-muted-foreground text-center p-4">
-          Vehicle must be idle for a few seconds to generate a prediction.
+          Generating forecast data...
         </p>
       </div>
     );
@@ -95,3 +95,5 @@ export default function IdleDrainChart({ data }: IdleDrainChartProps) {
     </ChartContainer>
   );
 }
+
+    

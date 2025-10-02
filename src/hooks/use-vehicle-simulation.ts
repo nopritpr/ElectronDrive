@@ -246,7 +246,6 @@ export function useVehicleSimulation() {
     setVehicleState({ range: predictedRange, rangePenalties: penalties });
   }, []);
 
-  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isIdlePredictionRunning = useRef(false);
 
   const triggerIdlePrediction = useCallback(async () => {
@@ -361,18 +360,6 @@ export function useVehicleSimulation() {
     let newSOC = prevState.batterySOC;
     
     const isIdle = prevState.speed === 0 && !prevState.isCharging;
-    if (isIdle) {
-        if (idleTimerRef.current === null) {
-            idleTimerRef.current = setTimeout(() => {
-                triggerIdlePrediction();
-            }, 3000); // Trigger after 3 seconds of being idle
-        }
-    } else {
-        if (idleTimerRef.current) {
-            clearTimeout(idleTimerRef.current);
-            idleTimerRef.current = null;
-        }
-    }
 
     // Handle idle state and phantom drain
     if (isIdle) {
@@ -496,7 +483,17 @@ export function useVehicleSimulation() {
     
     setVehicleState(newVehicleState);
     requestRef.current = requestAnimationFrame(updateVehicleState);
+  }, []);
+
+  // Continuous Idle Prediction
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      triggerIdlePrediction();
+    }, 10000); // Run every 10 seconds
+
+    return () => clearInterval(intervalId);
   }, [triggerIdlePrediction]);
+
 
   useEffect(() => {
     calculateDynamicRange();
@@ -520,11 +517,13 @@ export function useVehicleSimulation() {
     
     requestRef.current = requestAnimationFrame(updateVehicleState);
 
+    // Initial call to get the first prediction
+    triggerIdlePrediction();
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -546,3 +545,5 @@ export function useVehicleSimulation() {
     refreshAiInsights,
   };
 }
+
+    
