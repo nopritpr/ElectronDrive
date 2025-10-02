@@ -63,19 +63,22 @@ export function useVehicleSimulation() {
       isAcImpactRunning.current = true;
 
       try {
-          const currentState = vehicleStateRef.current;
-          const acImpactInput: AcUsageImpactInput = {
-              acOn: currentState.acOn,
-              acTemp: currentState.acTemp,
-              outsideTemp: currentState.outsideTemp,
-              recentWhPerKm: currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : 160,
-          };
-          const acImpactResult = await getAcUsageImpact(acImpactInput);
-          setAiState(prevState => ({...prevState, acUsageImpact: acImpactResult }));
+          // Use a slight delay to ensure the state has updated before we read it
+          setTimeout(async () => {
+            const currentState = vehicleStateRef.current;
+            const acImpactInput: AcUsageImpactInput = {
+                acOn: currentState.acOn,
+                acTemp: currentState.acTemp,
+                outsideTemp: currentState.outsideTemp,
+                recentWhPerKm: currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : 160,
+            };
+            const acImpactResult = await getAcUsageImpact(acImpactInput);
+            setAiState(prevState => ({...prevState, acUsageImpact: acImpactResult }));
+            isAcImpactRunning.current = false;
+          }, 100);
       } catch (error) {
           console.error("Error calling getAcUsageImpact:", error);
           setAiState(prevState => ({...prevState, acUsageImpact: null}));
-      } finally {
           isAcImpactRunning.current = false;
       }
   }, []);
@@ -86,10 +89,12 @@ export function useVehicleSimulation() {
 
   const toggleAC = () => {
      setVehicleState({ acOn: !vehicleStateRef.current.acOn });
+     triggerAcImpactForecast();
   };
 
   const setAcTemp = (temp: number) => {
     setVehicleState({ acTemp: temp });
+    triggerAcImpactForecast();
   }
 
   const setPassengers = (count: number) => {
@@ -399,9 +404,9 @@ export function useVehicleSimulation() {
   
   // AI Effects
   useEffect(() => {
-    // Run once on mount for idle prediction
     triggerIdlePrediction();
-  
+    triggerAcImpactForecast();
+
     const idlePredictionInterval = setInterval(() => {
       const isIdle = vehicleStateRef.current.speed === 0 && !vehicleStateRef.current.isCharging;
       if (isIdle) {
@@ -414,17 +419,7 @@ export function useVehicleSimulation() {
     return () => {
       clearInterval(idlePredictionInterval);
     };
-  }, [triggerIdlePrediction]);
-
-  useEffect(() => {
-    // This effect now correctly handles updates for AC Impact.
-    // It runs on mount and whenever a relevant dependency changes.
-    const timer = setTimeout(() => {
-        triggerAcImpactForecast();
-    }, 500); // Debounce to avoid rapid firing
-
-    return () => clearTimeout(timer);
-  }, [triggerAcImpactForecast, vehicleState.acOn, vehicleState.acTemp, vehicleState.outsideTemp]);
+  }, [triggerIdlePrediction, triggerAcImpactForecast]);
 
 
   useEffect(() => {
