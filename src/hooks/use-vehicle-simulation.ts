@@ -22,26 +22,40 @@ function stateReducer(state: VehicleState, action: Partial<VehicleState>): Vehic
 }
 
 const generateInitialSohHistory = (): SohHistoryEntry[] => {
-    // Starts with a single data point for a new car
-    return [
-        {
-            odometer: 0,
-            cycleCount: 0,
-            avgBatteryTemp: 25,
-            soh: 100,
-            ecoPercent: 100,
-            cityPercent: 0,
-            sportsPercent: 0,
-        },
-    ];
+    const entries: SohHistoryEntry[] = [];
+    const startDate = new Date();
+    startDate.setFullYear(startDate.getFullYear() - 4); // 4 years of history
+    let odometer = 0;
+    let cycleCount = 0;
+    let soh = 100;
+
+    for (let i = 0; i < 48; i++) { // 48 months
+        odometer += 1250 + (Math.random() - 0.5) * 500; // ~15,000 km/year
+        cycleCount += (1250 / 400) * 0.9; // Approximate cycles
+        soh -= 0.08 + (Math.random() - 0.5) * 0.02; // Degradation
+        
+        entries.push({
+            odometer: Math.round(odometer),
+            cycleCount: Math.round(cycleCount),
+            avgBatteryTemp: 25 + (Math.random() - 0.5) * 5,
+            soh: Math.round(soh * 100) / 100,
+            ecoPercent: 60 + Math.random() * 10,
+            cityPercent: 30 - Math.random() * 5,
+            sportsPercent: 10 - Math.random() * 5,
+        });
+    }
+    // Ensure the last point is current-ish
+    const lastEntry = entries[entries.length - 1];
+    defaultState.odometer = lastEntry.odometer;
+    defaultState.packSOH = lastEntry.soh!;
+    defaultState.equivalentFullCycles = lastEntry.cycleCount;
+
+    return entries;
 };
 
 const initialState = {
     ...defaultState,
     sohHistory: generateInitialSohHistory(),
-    odometer: 0,
-    packSOH: 100,
-    equivalentFullCycles: 0,
 };
 
 
@@ -136,6 +150,10 @@ export function useVehicleSimulation() {
           acUsage: currentState.acOn,
           driveMode: currentState.driveMode,
           outsideTemperature: currentState.outsideTemp,
+          acTemp: currentState.acTemp,
+          passengers: currentState.passengers,
+          accelerationHistory: currentState.accelerationHistory.slice(0, 10),
+          driveModeHistory: currentState.driveModeHistory.slice(0, 10) as string[],
         }),
         analyzeDrivingStyle({
           speedHistory: currentState.speedHistory,
@@ -161,6 +179,7 @@ export function useVehicleSimulation() {
 
       setState({
         drivingRecommendation: rec.recommendation,
+        drivingRecommendationJustification: rec.justification,
         drivingStyle: style.drivingStyle,
         drivingStyleRecommendations: style.recommendations,
         predictedDynamicRange: range.estimatedRange,
@@ -300,13 +319,15 @@ export function useVehicleSimulation() {
 
     // A/C penalty
     if (currentState.acOn) {
-      const acFactor = 1.1; // 10% penalty
+      const tempDiffFromOptimal = Math.abs(currentState.acTemp - (currentState.outsideTemp || 22));
+      // More penalty if the A/C has to work harder
+      const acFactor = 1.05 + (tempDiffFromOptimal / 10) * 0.05; // Base 5% + 0.5% for every degree difference
       totalPenaltyFactor *= acFactor;
       penalties.ac = idealRange * (1 - 1/acFactor);
     }
     
     // Load penalty
-    const passengerFactor = 1 + (currentState.passengers - 1) * 0.015; // 1.5% per passenger
+    const passengerFactor = 1 + (currentState.passengers - 1) * 0.015; // 1.5% per passenger > 1
     const goodsFactor = currentState.goodsInBoot ? 1.03 : 1; // 3% for goods
     const loadFactor = passengerFactor * goodsFactor;
     if (loadFactor > 1) {
@@ -315,7 +336,8 @@ export function useVehicleSimulation() {
     }
 
     // Temperature penalty
-    const tempDiff = Math.abs(22 - currentState.outsideTemp);
+    const outsideTemp = currentState.outsideTemp || 22;
+    const tempDiff = Math.abs(22 - outsideTemp);
     if (tempDiff > 5) {
       const tempFactor = 1 + (tempDiff - 5) * 0.008; // 0.8% penalty for each degree beyond 5 degree difference from optimal 22C
       totalPenaltyFactor *= tempFactor;
@@ -336,7 +358,6 @@ export function useVehicleSimulation() {
     
     const predictedRange = idealRange / totalPenaltyFactor;
     
-    // Distribute the total penalty based on each factor's contribution
     const totalCalculatedPenalty = penalties.ac + penalties.load + penalties.temp + penalties.driveMode;
     const totalActualPenalty = Math.max(0, idealRange - predictedRange);
 

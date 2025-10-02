@@ -15,16 +15,13 @@ interface OptimizationTabProps {
     onStabilizerToggle: () => void;
 }
 
-const InsightItem = ({ icon, title, description, type }: { icon: React.ReactNode, title: string, description: string, type: string }) => (
-  <div className={`p-2 rounded flex items-start gap-2 text-xs
-    ${type === 'warning' ? 'bg-yellow-900/20 border-yellow-800/30' :
-      type === 'tip' ? 'bg-blue-900/20 border-blue-800/30' :
-      'bg-muted/50'
-    }`}>
-    <div className="text-base mt-0.5">{icon}</div>
+const InsightItem = ({ icon, title, description, justification }: { icon: React.ReactNode, title: string, description: string, justification?: string | null }) => (
+  <div className="p-3 rounded-lg flex items-start gap-3 text-sm bg-muted/50 border border-border/50">
+    <div className="text-xl mt-1 text-primary">{icon}</div>
     <div>
-      <h5 className="font-semibold">{title}</h5>
-      <p className="text-muted-foreground">{description}</p>
+      <h5 className="font-semibold text-foreground">{title}</h5>
+      <p className="text-muted-foreground leading-snug text-xs">{description}</p>
+      {justification && <p className="text-muted-foreground/80 leading-snug text-xs mt-1 fst-italic">Justification: {justification}</p>}
     </div>
   </div>
 );
@@ -45,11 +42,11 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
             icon: '💡',
             title: 'Live Tip',
             description: state.drivingRecommendation,
-            type: 'tip'
+            justification: state.drivingRecommendationJustification,
         });
     }
     if (state.drivingStyleRecommendations) {
-        state.drivingStyleRecommendations.forEach(rec => {
+        state.drivingStyleRecommendations.slice(0, 1).forEach(rec => { // Only show top 1 style recommendation
             allInsights.push({
                 icon: '🎯',
                 title: 'Driving Style',
@@ -59,7 +56,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
         });
     }
     return allInsights;
-  }, [state.drivingRecommendation, state.drivingStyleRecommendations]);
+  }, [state.drivingRecommendation, state.drivingRecommendationJustification, state.drivingStyleRecommendations]);
   
   const activeProfileData = state.profiles[state.activeProfile];
   

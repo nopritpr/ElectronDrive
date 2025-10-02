@@ -117,6 +117,7 @@ export interface VehicleState {
   odometer: number;
   tripA: number;
   tripB: number;
+
   activeTrip: 'A' | 'B';
   batterySOC: number;
   range: number;
@@ -185,6 +186,7 @@ export interface VehicleState {
   weather: WeatherData | null;
   sohForecast: { odometer: number; soh: number }[];
   drivingRecommendation: string;
+  drivingRecommendationJustification: string | null;
   drivingStyle: string;
   drivingStyleRecommendations: string[];
   fatigueWarning: string | null;
