@@ -38,7 +38,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
   const insights = useMemo(() => {
     const allInsights = [];
     
-    if (state.drivingRecommendation && state.drivingRecommendation !== 'Start driving to get recommendations.') {
+    if (state.drivingRecommendation && state.drivingRecommendation !== 'Start driving to get recommendations.' && state.drivingRecommendation !== 'AI service unavailable.') {
         allInsights.push({
             icon: '💡',
             title: 'Live Tip',
