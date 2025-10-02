@@ -262,7 +262,7 @@ export function useVehicleSimulation() {
         accelerationHistory: currentState.accelerationHistory.slice(0, 10),
         driveModeHistory: currentState.driveModeHistory.slice(0, 10) as string[],
     };
-    console.log("Calling getDrivingRecommendation with input:", recInput);
+
     try {
         const rec = await getDrivingRecommendation(recInput);
         setAiState({
@@ -280,7 +280,6 @@ export function useVehicleSimulation() {
         driveModeHistory: currentState.driveModeHistory as string[],
         ecoScore: currentState.ecoScore,
     };
-    console.log("Calling analyzeDrivingStyle with input:", styleInput);
     try {
         const style = await analyzeDrivingStyle(styleInput);
         setAiState({
@@ -292,7 +291,6 @@ export function useVehicleSimulation() {
     }
 
     const sohInput: SohForecastInput = { historicalData: currentState.sohHistory };
-    console.log("Calling forecastSoh with input:", sohInput);
     try {
         const soh = await forecastSoh(sohInput);
         if (soh && soh.length > 0) setAiState({ sohForecast: soh });
@@ -306,7 +304,6 @@ export function useVehicleSimulation() {
         harshBrakingEvents: currentState.styleMetrics.harshBrakes,
         harshAccelerationEvents: currentState.styleMetrics.harshAccel,
     };
-    console.log("Calling monitorDriverFatigue with input:", fatigueInput);
     try {
         const fatigueResult = await monitorDriverFatigue(fatigueInput);
         let newFatigueLevel = fatigueResult.isFatigued ? fatigueResult.confidence : 1 - fatigueResult.confidence;

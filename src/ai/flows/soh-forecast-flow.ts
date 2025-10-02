@@ -80,7 +80,7 @@ const sohForecastFlow = ai.defineFlow(
     inputSchema: SohForecastInputSchema,
     outputSchema: SohForecastOutputSchema,
   },
-  async input => {
+async input => {
     // Ensure there's enough data to create a meaningful forecast.
     if (input.historicalData.length < 2) {
       return [];
