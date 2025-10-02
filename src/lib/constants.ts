@@ -1,7 +1,7 @@
 
-import type { VehicleState, DriveMode } from './types';
+import type { VehicleState, DriveMode, AiState } from './types';
 
-export const defaultState: VehicleState = {
+export const defaultState: Omit<VehicleState, 'sohHistory'> = {
   odometer: 0.0,
   tripA: 0.0,
   tripB: 0.0,
@@ -33,17 +33,6 @@ export const defaultState: VehicleState = {
   aggressiveDrivingCounter: 0,
   stabilizerEnabled: true,
   rawPredictedRange: null,
-  sohHistory: [
-    {
-      odometer: 0,
-      cycleCount: 0,
-      avgBatteryTemp: 25,
-      soh: 100,
-      ecoPercent: 100,
-      cityPercent: 0,
-      sportsPercent: 0,
-    },
-  ],
   packNominalCapacity_kWh: 75,
   packUsableFraction: 0.95,
   packSOH: 100,
@@ -85,12 +74,6 @@ export const defaultState: VehicleState = {
   },
   activeProfile: 'Pritesh',
   weather: null,
-  sohForecast: [],
-  drivingRecommendation: 'Start driving to get recommendations.',
-  drivingStyle: 'Balanced',
-  drivingStyleRecommendations: [],
-  fatigueWarning: null,
-  fatigueLevel: 0,
   rangePenalties: {
     ac: 0,
     load: 0,
@@ -98,6 +81,17 @@ export const defaultState: VehicleState = {
     driveMode: 0,
   }
 };
+
+export const defaultAiState: AiState = {
+  sohForecast: [],
+  drivingRecommendation: 'Start driving to get recommendations.',
+  drivingRecommendationJustification: null,
+  drivingStyle: 'Balanced',
+  drivingStyleRecommendations: [],
+  fatigueWarning: null,
+  fatigueLevel: 0,
+};
+
 
 export const EV_CONSTANTS = {
   mass_kg: 1960,
@@ -144,3 +138,5 @@ export const MODE_SETTINGS: Record<
     strongRegenBrakeRate: 7.0,
   },
 };
+
+    

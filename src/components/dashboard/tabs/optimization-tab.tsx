@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import EcoScoreGauge from "../charts/eco-score-gauge";
 import SohForecastChart from "../charts/soh-forecast-chart";
-import type { VehicleState, Profile } from "@/lib/types";
+import type { VehicleState, AiState } from "@/lib/types";
 import { Leaf, User, BrainCircuit, BarChart, HeartPulse } from "lucide-react";
 import { useMemo } from 'react';
 
 interface OptimizationTabProps {
-    state: VehicleState;
+    state: VehicleState & AiState;
     onProfileSwitchClick: () => void;
     onStabilizerToggle: () => void;
 }
@@ -57,6 +57,13 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
             icon: '🎯',
             title: 'Driving Style',
             description: state.drivingStyleRecommendations[0],
+            justification: null,
+        });
+    } else {
+        allInsights.push({
+            icon: '🎯',
+            title: 'Driving Style',
+            description: "Drive to analyze your unique style.",
             justification: null,
         });
     }
@@ -133,23 +140,15 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col p-0 pt-2 min-h-0">
                      <div className="flex-grow space-y-2 overflow-y-auto pr-2">
-                        {insights.length > 0 ? (
-                            insights.map((insight, i) => (
-                                <InsightItem
-                                    key={i}
-                                    icon={insight.icon}
-                                    title={insight.title}
-                                    description={insight.description}
-                                    justification={insight.justification}
-                                />
-                            ))
-                        ) : (
+                        {insights.map((insight, i) => (
                             <InsightItem
-                                icon="💡"
-                                title="Live Tip"
-                                description="Start driving to get recommendations."
+                                key={i}
+                                icon={insight.icon}
+                                title={insight.title}
+                                description={insight.description}
+                                justification={insight.justification}
                             />
-                        )}
+                        ))}
                     </div>
                     <div className="flex items-center justify-between mt-auto pt-4 border-t">
                         <label htmlFor="stabilizer-toggle" className="text-sm">Prediction Stabilizer</label>
@@ -160,3 +159,5 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
         </div>
     );
 }
+
+    

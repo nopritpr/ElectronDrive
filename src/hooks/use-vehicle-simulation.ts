@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
-import type { VehicleState, DriveMode, Profile, ChargingLog, SohHistoryEntry, RangePenalties } from '@/lib/types';
-import { defaultState, EV_CONSTANTS, MODE_SETTINGS } from '@/lib/constants';
+import type { VehicleState, DriveMode, Profile, ChargingLog, SohHistoryEntry, RangePenalties, AiState } from '@/lib/types';
+import { defaultState, EV_CONSTANTS, MODE_SETTINGS, defaultAiState } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { getDrivingRecommendation } from '@/ai/flows/adaptive-driving-recommendations';
 import { analyzeDrivingStyle } from '@/ai/flows/driver-profiling';
@@ -20,6 +20,11 @@ const keys: Record<string, boolean> = {
 function stateReducer(state: VehicleState, action: Partial<VehicleState>): VehicleState {
   return { ...state, ...action };
 }
+
+function aiStateReducer(state: AiState, action: Partial<AiState>): AiState {
+    return { ...state, ...action };
+}
+
 
 const generateInitialSohHistory = (): SohHistoryEntry[] => {
     const entries: SohHistoryEntry[] = [];
@@ -56,17 +61,19 @@ const generateInitialSohHistory = (): SohHistoryEntry[] => {
 const initialState: VehicleState = {
     ...defaultState,
     sohHistory: generateInitialSohHistory(),
-    drivingRecommendation: 'Start driving to get recommendations.',
 };
 
 
 export function useVehicleSimulation() {
   const [state, setState] = useReducer(stateReducer, initialState);
+  const [aiState, setAiState] = useReducer(aiStateReducer, defaultAiState);
+
   const { toast } = useToast();
   
   const accelerationRef = useRef<number>(0);
   const requestRef = useRef<number>();
   const stateRef = useRef<VehicleState>(state);
+  const aiStateRef = useRef<AiState>(aiState);
   
   const lastSohHistoryUpdateOdometer = useRef(state.odometer);
 
@@ -74,25 +81,22 @@ export function useVehicleSimulation() {
     stateRef.current = state;
   }, [state]);
 
+  useEffect(() => {
+    aiStateRef.current = aiState;
+  }, [aiState]);
+
   const callAiFlows = useCallback(async () => {
     const currentState = stateRef.current;
-     if (
-      currentState.batterySOC === null ||
-      typeof currentState.batterySOC === 'undefined' ||
-      currentState.outsideTemp === null ||
-      typeof currentState.outsideTemp === 'undefined'
-    ) {
-      return;
-    }
-    
+    const currentAiState = aiStateRef.current;
+
     if (currentState.speed < 1) {
-        setState({ drivingRecommendation: 'Start driving to get recommendations.', drivingRecommendationJustification: null});
+        setAiState({ drivingRecommendation: 'Start driving to get recommendations.', drivingRecommendationJustification: null });
         return;
     }
 
     try {
       const rec = await getDrivingRecommendation({
-        drivingStyle: currentState.drivingStyle,
+        drivingStyle: currentAiState.drivingStyle,
         predictedRange: currentState.predictedDynamicRange,
         batterySOC: currentState.batterySOC,
         acUsage: currentState.acOn,
@@ -104,19 +108,20 @@ export function useVehicleSimulation() {
         driveModeHistory: currentState.driveModeHistory.slice(0, 10) as string[],
       });
       
-      setState({
+      setAiState({
         drivingRecommendation: rec.recommendation,
         drivingRecommendationJustification: rec.justification,
       });
 
     } catch (error) {
       console.error('AI Flow error:', error);
-       setState({ drivingRecommendation: 'AI service unavailable.', drivingRecommendationJustification: null });
+       setAiState({ drivingRecommendation: 'AI service unavailable.', drivingRecommendationJustification: null });
     }
   }, []);
 
   const callSecondaryAiFlows = useCallback(async () => {
     const currentState = stateRef.current;
+    const currentAiState = aiStateRef.current;
     if (currentState.speed < 1) return;
 
     try {
@@ -128,7 +133,7 @@ export function useVehicleSimulation() {
           ecoScore: currentState.ecoScore,
         }),
         predictRange({
-          drivingStyle: currentState.drivingStyle,
+          drivingStyle: currentAiState.drivingStyle,
           climateControlSettings: {
             acUsage: currentState.acOn ? 100 : 0,
             temperatureSetting: currentState.acTemp,
@@ -143,9 +148,12 @@ export function useVehicleSimulation() {
         }),
       ]);
       
-      setState({
+      setAiState({
         drivingStyle: style.drivingStyle,
         drivingStyleRecommendations: style.recommendations,
+      });
+
+      setState({
         predictedDynamicRange: range.estimatedRange,
       });
     } catch (error) {
@@ -163,7 +171,7 @@ export function useVehicleSimulation() {
         historicalData: currentState.sohHistory,
       });
       if (soh && soh.length > 0) {
-        setState({ sohForecast: soh });
+        setAiState({ sohForecast: soh });
       }
     } catch (error) {
       console.error('SOH Forecast AI Flow error:', error);
@@ -172,8 +180,10 @@ export function useVehicleSimulation() {
 
   const callFatigueMonitor = useCallback(async () => {
     const currentState = stateRef.current;
+    const currentAiState = aiStateRef.current;
+
     if (currentState.speed < 10) { 
-        if (currentState.fatigueWarning) setState({fatigueWarning: null, fatigueLevel: 0});
+        if (currentAiState.fatigueWarning) setAiState({fatigueWarning: null, fatigueLevel: 0});
         return;
     };
 
@@ -186,16 +196,16 @@ export function useVehicleSimulation() {
         });
         
         let newFatigueLevel = fatigueResult.isFatigued ? fatigueResult.confidence : 1 - fatigueResult.confidence;
-        let newFatigueWarning = currentState.fatigueWarning;
+        let newFatigueWarning = currentAiState.fatigueWarning;
 
         if (fatigueResult.isFatigued && fatigueResult.confidence > 0.7) {
             newFatigueWarning = fatigueResult.reasoning;
             setState({ styleMetrics: { ...currentState.styleMetrics, harshBrakes: 0, harshAccel: 0 } });
-        } else if (currentState.fatigueWarning) {
+        } else if (currentAiState.fatigueWarning) {
             newFatigueWarning = null;
         }
 
-        setState({fatigueLevel: newFatigueLevel, fatigueWarning: newFatigueWarning});
+        setAiState({fatigueLevel: newFatigueLevel, fatigueWarning: newFatigueWarning});
 
     } catch (error) {
       console.error('Fatigue Monitor AI Flow error:', error);
@@ -549,8 +559,14 @@ export function useVehicleSimulation() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Merge the two states for the component return value
+  const combinedState: VehicleState & AiState = {
+    ...state,
+    ...aiState,
+  };
+
   return {
-    state,
+    state: combinedState,
     setState,
     setDriveMode,
     toggleAC,
@@ -566,3 +582,5 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    

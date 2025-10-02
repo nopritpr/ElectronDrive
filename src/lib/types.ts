@@ -184,6 +184,10 @@ export interface VehicleState {
   profiles: Record<string, Profile>;
   activeProfile: string;
   weather: WeatherData | null;
+  rangePenalties: RangePenalties;
+}
+
+export interface AiState {
   sohForecast: { odometer: number; soh: number }[];
   drivingRecommendation: string;
   drivingRecommendationJustification: string | null;
@@ -191,5 +195,6 @@ export interface VehicleState {
   drivingStyleRecommendations: string[];
   fatigueWarning: string | null;
   fatigueLevel: number;
-  rangePenalties: RangePenalties;
 }
+
+    
