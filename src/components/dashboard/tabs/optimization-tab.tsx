@@ -62,6 +62,9 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
   }, [state.drivingRecommendation, state.drivingStyleRecommendations]);
   
   const activeProfileData = state.profiles[state.activeProfile];
+  
+  // As per user request, green score is reset to 0.
+  const greenScore = 0.0;
 
   return (
         <div className="h-full grid grid-cols-3 grid-rows-2 gap-4 min-h-0">
@@ -83,7 +86,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                 </CardHeader>
                 <CardContent className="text-center">
                     <p className="text-5xl font-bold text-green-400 font-headline">
-                        0.0
+                        {greenScore.toFixed(1)}
                     </p>
                     <p className="text-xs text-muted-foreground">kg CO₂ saved vs ICE</p>
                     <p className="text-xs text-muted-foreground text-center mt-2">Calculated based on odometer reading vs. average emissions of a gasoline car.</p>
@@ -141,5 +144,3 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
         </div>
     );
 }
-
-    

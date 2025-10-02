@@ -1,3 +1,4 @@
+
 'use client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ChargingHabitChart from "../charts/charging-habit-chart";
@@ -5,6 +6,7 @@ import type { VehicleState } from "@/lib/types";
 import { BatteryCharging, Zap, TrendingUp } from "lucide-react";
 import DynamicRangeChart from "../charts/dynamic-range-chart";
 import FatigueMonitorGauge from "../charts/fatigue-monitor-gauge";
+import { EV_CONSTANTS } from "@/lib/constants";
 
 interface AnalyticsTabProps {
     state: VehicleState;
@@ -42,6 +44,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
         ];
     }
     
+    // As per user request, cost savings is reset to 0.
     const savings = 0;
 
     return (
@@ -110,3 +113,4 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
             </Card>
         </div>
     );
+}

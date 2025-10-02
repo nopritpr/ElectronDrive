@@ -22,25 +22,18 @@ function stateReducer(state: VehicleState, action: Partial<VehicleState>): Vehic
 }
 
 const generateInitialSohHistory = (): SohHistoryEntry[] => {
-  const history: SohHistoryEntry[] = [];
-  const startOdometer = 80000;
-  const startSoh = 92;
-  const startCycles = 400;
-
-  for (let i = 0; i <= 10; i++) {
-    const odo = (startOdometer / 10) * i;
-    const sohDecline = (100 - startSoh) * Math.pow(i / 10, 1.5);
-    history.push({
-      odometer: odo,
-      cycleCount: (startCycles / 10) * i,
-      avgBatteryTemp: 25 + Math.random() * 5,
-      soh: 100 - sohDecline,
-      ecoPercent: 60 + Math.random() * 10,
-      cityPercent: 30 - Math.random() * 5,
-      sportsPercent: 10 - Math.random() * 5,
-    });
-  }
-  return history;
+    // Starts with a single data point for a new car
+    return [
+        {
+            odometer: 0,
+            cycleCount: 0,
+            avgBatteryTemp: 25,
+            soh: 100,
+            ecoPercent: 100,
+            cityPercent: 0,
+            sportsPercent: 0,
+        },
+    ];
 };
 
 const initialSohHistory = generateInitialSohHistory();
@@ -49,9 +42,9 @@ const lastHistoryEntry = initialSohHistory[initialSohHistory.length - 1];
 const initialState = {
     ...defaultState,
     sohHistory: initialSohHistory,
-    odometer: lastHistoryEntry.odometer,
-    packSOH: lastHistoryEntry.soh || 92,
-    equivalentFullCycles: lastHistoryEntry.cycleCount,
+    odometer: 0,
+    packSOH: 100,
+    equivalentFullCycles: 0,
 };
 
 
@@ -487,7 +480,3 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
-    
-
-    
-
