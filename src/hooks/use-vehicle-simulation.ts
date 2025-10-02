@@ -67,61 +67,28 @@ export function useVehicleSimulation() {
   const requestRef = useRef<number>();
   const stateRef = useRef<VehicleState>(state);
   
-  const lastAiCall = useRef(0);
-  const lastFatigueCheck = useRef(0);
-  const lastSohCheck = useRef(0);
+  // Separate state for AI data to prevent it from being overwritten by the physics loop
+  const [aiState, setAiState] = useState({
+    drivingRecommendation: 'Start driving to get recommendations.',
+    drivingRecommendationJustification: null,
+    drivingStyle: 'Balanced',
+    drivingStyleRecommendations: [],
+    predictedDynamicRange: state.initialRange,
+    fatigueWarning: null,
+    fatigueLevel: 0,
+    sohForecast: [],
+  });
+  
   const lastSohHistoryUpdateOdometer = useRef(state.odometer);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+  
+  // Combine physics state and AI state before passing to components
+  const combinedState = { ...state, ...aiState };
 
-  const callSohForecast = useCallback(async () => {
-    const currentState = stateRef.current;
-    if (currentState.sohHistory.length < 1) return;
-    
-    try {
-      const soh = await forecastSoh({
-        historicalData: currentState.sohHistory,
-      });
-      if (soh && soh.length > 0) {
-        setState({ sohForecast: soh });
-      }
-    } catch (error) {
-      console.error('SOH Forecast AI Flow error:', error);
-    }
-  }, []);
-
-  const callFatigueMonitor = useCallback(async () => {
-    const currentState = stateRef.current;
-    if (currentState.speed < 10) { 
-        if (currentState.fatigueWarning) setState({ fatigueWarning: null, fatigueLevel: 0 });
-        return;
-    };
-
-    try {
-        const fatigueResult = await monitorDriverFatigue({
-            speedHistory: currentState.speedHistory.slice(0, 60), 
-            accelerationHistory: currentState.accelerationHistory.slice(0, 60),
-            harshBrakingEvents: currentState.styleMetrics.harshBrakes,
-            harshAccelerationEvents: currentState.styleMetrics.harshAccel,
-        });
-
-        const newFatigueState: Partial<VehicleState> = { fatigueLevel: fatigueResult.isFatigued ? fatigueResult.confidence : 1 - fatigueResult.confidence };
-
-        if (fatigueResult.isFatigued && fatigueResult.confidence > 0.7) {
-            newFatigueState.fatigueWarning = fatigueResult.reasoning;
-            newFatigueState.styleMetrics = { ...currentState.styleMetrics, harshBrakes: 0, harshAccel: 0 };
-        } else if (currentState.fatigueWarning) {
-            newFatigueState.fatigueWarning = null;
-        }
-        setState(newFatigueState);
-    } catch (error) {
-      console.error('Fatigue Monitor AI Flow error:', error);
-    }
-  }, []);
-
-  const callDrivingInsights = useCallback(async () => {
+  const callAiFlows = useCallback(async () => {
     const currentState = stateRef.current;
      if (
       currentState.batterySOC === null ||
@@ -133,9 +100,7 @@ export function useVehicleSimulation() {
     }
     
     if (currentState.speed < 1) {
-        if(currentState.drivingRecommendation !== 'Start driving to get recommendations.') {
-            setState({drivingRecommendation: 'Start driving to get recommendations.', drivingRecommendationJustification: null});
-        }
+        setAiState(s => ({...s, drivingRecommendation: 'Start driving to get recommendations.', drivingRecommendationJustification: null}));
         return;
     }
 
@@ -175,19 +140,69 @@ export function useVehicleSimulation() {
         }),
       ]);
       
-      setState({
+      setAiState(s => ({
+        ...s,
         drivingRecommendation: rec.recommendation,
         drivingRecommendationJustification: rec.justification,
         drivingStyle: style.drivingStyle,
         drivingStyleRecommendations: style.recommendations,
         predictedDynamicRange: range.estimatedRange,
-      });
+      }));
 
     } catch (error) {
       console.error('AI Flow error:', error);
-       setState({ drivingRecommendation: 'AI service unavailable.', drivingRecommendationJustification: null });
+       setAiState(s => ({ ...s, drivingRecommendation: 'AI service unavailable.', drivingRecommendationJustification: null }));
     }
-  }, []);
+  }, [stateRef]);
+
+  const callSohForecast = useCallback(async () => {
+    const currentState = stateRef.current;
+    if (currentState.sohHistory.length < 1) return;
+    
+    try {
+      const soh = await forecastSoh({
+        historicalData: currentState.sohHistory,
+      });
+      if (soh && soh.length > 0) {
+        setAiState(s => ({ ...s, sohForecast: soh }));
+      }
+    } catch (error) {
+      console.error('SOH Forecast AI Flow error:', error);
+    }
+  }, [stateRef]);
+
+  const callFatigueMonitor = useCallback(async () => {
+    const currentState = stateRef.current;
+    if (currentState.speed < 10) { 
+        if (aiState.fatigueWarning) setAiState(s => ({...s, fatigueWarning: null, fatigueLevel: 0}));
+        return;
+    };
+
+    try {
+        const fatigueResult = await monitorDriverFatigue({
+            speedHistory: currentState.speedHistory.slice(0, 60), 
+            accelerationHistory: currentState.accelerationHistory.slice(0, 60),
+            harshBrakingEvents: currentState.styleMetrics.harshBrakes,
+            harshAccelerationEvents: currentState.styleMetrics.harshAccel,
+        });
+        
+        let newFatigueLevel = fatigueResult.isFatigued ? fatigueResult.confidence : 1 - fatigueResult.confidence;
+        let newFatigueWarning = aiState.fatigueWarning;
+
+        if (fatigueResult.isFatigued && fatigueResult.confidence > 0.7) {
+            newFatigueWarning = fatigueResult.reasoning;
+            setState({ styleMetrics: { ...currentState.styleMetrics, harshBrakes: 0, harshAccel: 0 } });
+        } else if (aiState.fatigueWarning) {
+            newFatigueWarning = null;
+        }
+
+        setAiState(s => ({...s, fatigueLevel: newFatigueLevel, fatigueWarning: newFatigueWarning}));
+
+    } catch (error) {
+      console.error('Fatigue Monitor AI Flow error:', error);
+    }
+  }, [stateRef, aiState.fatigueWarning]);
+
 
   const setDriveMode = (mode: DriveMode) => {
     setState({ driveMode: mode, driveModeHistory: [mode, ...stateRef.current.driveModeHistory].slice(0, 50) as DriveMode[] });
@@ -370,7 +385,7 @@ export function useVehicleSimulation() {
     
     setState({ range: predictedRange, rangePenalties: penalties });
 
-  }, []);
+  }, [setState]);
 
   const updateVehicleState = useCallback(() => {
     const prevState = stateRef.current;
@@ -483,7 +498,7 @@ export function useVehicleSimulation() {
     
     setState(newState);
     requestRef.current = requestAnimationFrame(updateVehicleState);
-  }, []);
+  }, [setState]);
 
   // Recalculate dynamic range whenever dependencies change
   useEffect(() => {
@@ -492,33 +507,20 @@ export function useVehicleSimulation() {
 
   // AI Timers
   useEffect(() => {
-    const aiTimer = setInterval(() => {
-        if (Date.now() - lastAiCall.current > 10000) {
-            callDrivingInsights();
-            lastAiCall.current = Date.now();
-        }
-    }, 10000);
+    const timers = [
+        setInterval(callAiFlows, 10000),
+        setInterval(callFatigueMonitor, 5000),
+        setInterval(callSohForecast, 60000)
+    ];
 
-    const fatigueTimer = setInterval(() => {
-        if (Date.now() - lastFatigueCheck.current > 5000) {
-            callFatigueMonitor();
-            lastFatigueCheck.current = Date.now();
-        }
-    }, 5000);
-    
-    const sohTimer = setInterval(() => {
-        if (Date.now() - lastSohCheck.current > 60000) {
-            callSohForecast();
-            lastSohCheck.current = Date.now();
-        }
-    }, 60000);
+    // Initial calls for AI features
+    callSohForecast();
+    callAiFlows();
+    callFatigueMonitor();
 
-    return () => {
-      clearInterval(aiTimer);
-      clearInterval(fatigueTimer);
-      clearInterval(sohTimer);
-    };
-  }, [callDrivingInsights, callFatigueMonitor, callSohForecast]);
+    return () => timers.forEach(clearInterval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -537,11 +539,6 @@ export function useVehicleSimulation() {
     window.addEventListener('keyup', handleKeyUp);
     
     requestRef.current = requestAnimationFrame(updateVehicleState);
-    
-    // Initial calls for AI features
-    callSohForecast();
-    callDrivingInsights();
-    callFatigueMonitor();
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -552,7 +549,7 @@ export function useVehicleSimulation() {
   }, []);
 
   return {
-    state,
+    state: combinedState,
     setState,
     setDriveMode,
     toggleAC,

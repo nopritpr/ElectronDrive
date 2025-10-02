@@ -38,24 +38,24 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
   const insights = useMemo(() => {
     const allInsights = [];
     
-    if (state.drivingRecommendation && state.drivingRecommendation !== 'Start driving to get recommendations.') {
+    // Always show the default or live tip
+    allInsights.push({
+        icon: '💡',
+        title: 'Live Tip',
+        description: state.drivingRecommendation || 'Start driving to get recommendations.',
+        justification: state.drivingRecommendationJustification,
+    });
+
+    if (state.drivingStyleRecommendations && state.drivingStyleRecommendations.length > 0) {
+        // Add the first driving style recommendation if it exists
         allInsights.push({
-            icon: '💡',
-            title: 'Live Tip',
-            description: state.drivingRecommendation,
-            justification: state.drivingRecommendationJustification,
+            icon: '🎯',
+            title: 'Driving Style',
+            description: state.drivingStyleRecommendations[0],
+            justification: null,
         });
     }
 
-    if (state.drivingStyleRecommendations) {
-        state.drivingStyleRecommendations.slice(0, 1).forEach(rec => {
-            allInsights.push({
-                icon: '🎯',
-                title: 'Driving Style',
-                description: rec,
-            });
-        });
-    }
     return allInsights;
   }, [state.drivingRecommendation, state.drivingRecommendationJustification, state.drivingStyleRecommendations]);
   
