@@ -7,7 +7,7 @@ import { defaultState, EV_CONSTANTS, MODE_SETTINGS, defaultAiState } from '@/lib
 import { useToast } from '@/hooks/use-toast';
 import { getDrivingRecommendation, type DrivingRecommendationInput } from '@/ai/flows/adaptive-driving-recommendations';
 import { analyzeDrivingStyle, type AnalyzeDrivingStyleInput } from '@/ai/flows/driver-profiling';
-import { estimatePhantomDrain, type PhantomDrainInput } from '@/ai/flows/phantom-drain-estimator';
+import { predictIdleDrain, type PredictiveIdleDrainInput } from '@/ai/flows/predictive-idle-drain';
 import { monitorDriverFatigue, type DriverFatigueInput } from '@/ai/flows/driver-fatigue-monitor';
 import { googleAI } from '@genkit-ai/google-genai';
 
@@ -318,14 +318,19 @@ export function useVehicleSimulation() {
         setAiState({ fatigueLevel: 0, fatigueWarning: null });
     }
 
-    const drainInput: PhantomDrainInput = { idleHistory: currentState.idleHistory };
+    const drainInput: PredictiveIdleDrainInput = {
+        currentBatterySOC: currentState.batterySOC,
+        acOn: currentState.acOn,
+        acTemp: currentState.acTemp,
+        outsideTemp: currentState.outsideTemp
+    };
     try {
-        console.log("Requesting phantom drain estimation with input:", drainInput);
-        const drainResult = await estimatePhantomDrain(drainInput);
-        setAiState({ phantomDrainPrediction: drainResult });
+        console.log("Requesting idle drain estimation with input:", drainInput);
+        const drainResult = await predictIdleDrain(drainInput);
+        setAiState({ idleDrainPrediction: drainResult });
     } catch (error) {
-        console.error("Error calling estimatePhantomDrain:", error);
-        setAiState({ phantomDrainPrediction: null });
+        console.error("Error calling predictIdleDrain:", error);
+        setAiState({ idleDrainPrediction: null });
     }
 
     toast({ title: 'AI Insights Refreshed!', variant: 'default' });
@@ -354,9 +359,21 @@ export function useVehicleSimulation() {
         idleStartTimeRef.current = now;
         lastIdleSocRef.current = prevState.batterySOC;
       }
-      // Apply phantom drain
-      const phantomDrainPerSecond = (0.75 / 8) / 3600; // 0.75% over 8 hours
-      newSOC -= phantomDrainPerSecond * timeDelta;
+      // Apply phantom drain - accelerated for demo
+      const basePhantomDrainPerHour = 0.2 * 5; // 0.2% per hour, 5x speed
+      let totalDrainPerHour = basePhantomDrainPerHour;
+
+      // Add A/C drain
+      if (prevState.acOn) {
+        const tempDiff = Math.abs(prevState.outsideTemp - prevState.acTemp);
+        const dutyCycle = Math.min(1, tempDiff / 10); // Simplified: 100% duty at 10C diff
+        const acPowerDrain_kW = EV_CONSTANTS.acPower_kW * dutyCycle;
+        const acSocDrainPerHour = (acPowerDrain_kW / prevState.packNominalCapacity_kWh) * 100;
+        totalDrainPerHour += acSocDrainPerHour;
+      }
+
+      const totalDrainPerSecond = totalDrainPerHour / 3600;
+      newSOC -= totalDrainPerSecond * timeDelta;
       
     } else {
       if (idleStartTimeRef.current !== null && lastIdleSocRef.current !== null) {

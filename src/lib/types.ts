@@ -193,18 +193,19 @@ export interface VehicleState {
   rangePenalties: RangePenalties;
 }
 
-export interface PhantomDrainPrediction {
-    predictedDrainPercentage: number;
-    isAnomaly: boolean;
-    reasoning: string;
+export interface PredictiveIdleDrainOutput {
+  hourlyPrediction: {
+    hour: number;
+    soc: number;
+  }[];
 }
 
 export interface AiState {
   drivingRecommendation: string;
   drivingRecommendationJustification: string | null;
-  drivingStyle: string;
+drivingStyle: string;
   drivingStyleRecommendations: string[];
   fatigueWarning: string | null;
   fatigueLevel: number;
-  phantomDrainPrediction: PhantomDrainPrediction | null;
+  idleDrainPrediction: PredictiveIdleDrainOutput | null;
 }

@@ -1,5 +1,5 @@
 
-import type { VehicleState, DriveMode, AiState, PhantomDrainPrediction } from './types';
+import type { VehicleState, DriveMode, AiState } from './types';
 
 export const defaultState: Omit<VehicleState, 'sohHistory'> = {
   odometer: 0.0,
@@ -90,7 +90,7 @@ export const defaultAiState: AiState = {
   drivingStyleRecommendations: [],
   fatigueWarning: null,
   fatigueLevel: 0,
-  phantomDrainPrediction: null,
+  idleDrainPrediction: null,
 };
 
 

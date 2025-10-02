@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import EcoScoreGauge from "../charts/eco-score-gauge";
 import type { VehicleState, AiState } from "@/lib/types";
-import { Leaf, User, BrainCircuit, BarChart, Battery, RefreshCw } from "lucide-react";
+import { Leaf, User, BrainCircuit, BarChart, Battery, RefreshCw, Hourglass } from "lucide-react";
 import { useMemo, useState } from 'react';
+import IdleDrainChart from "../charts/idle-drain-chart";
 
 interface OptimizationTabProps {
     state: VehicleState & AiState;
@@ -97,24 +98,13 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                 </CardContent>
             </Card>
             
-            <Card className="p-4 flex flex-col">
-                <CardHeader className="p-0 pb-2">
-                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Battery className="w-4 h-4"/>Phantom Drain</CardTitle>
-                    <p className="text-xs text-muted-foreground -mt-2">Anomaly detection model for idle drain.</p>
+            <Card className="flex flex-col">
+                <CardHeader>
+                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Hourglass className="w-4 h-4"/>Predictive Idle Drain</CardTitle>
+                    <p className="text-xs text-muted-foreground -mt-2">Predicts battery loss over 8 hours while idle.</p>
                 </CardHeader>
-                <CardContent className="p-0 flex-grow flex flex-col items-center justify-center">
-                    <div className="text-center">
-                        <p className="text-4xl font-bold text-primary font-headline">
-                            {state.phantomDrainPrediction ? state.phantomDrainPrediction.predictedDrainPercentage.toFixed(2) : '...'}%
-                        </p>
-                        <p className="text-xs text-muted-foreground">predicted overnight drain</p>
-                    </div>
-                    {state.phantomDrainPrediction && (
-                        <p className="text-xs text-center mt-2 p-2 bg-muted/50 rounded-md">
-                            {state.phantomDrainPrediction.isAnomaly && <span className="text-destructive font-semibold">Anomaly: </span>}
-                            {state.phantomDrainPrediction.reasoning}
-                        </p>
-                    )}
+                <CardContent className="p-0 flex-grow min-h-0">
+                    <IdleDrainChart data={state.idleDrainPrediction} />
                 </CardContent>
             </Card>
 
