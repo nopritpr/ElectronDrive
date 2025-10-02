@@ -48,11 +48,6 @@ const generateInitialSohHistory = (): SohHistoryEntry[] => {
             sportsPercent: 10 - Math.random() * 5,
         });
     }
-    const lastEntry = entries[entries.length - 1];
-    defaultState.odometer = lastEntry.odometer;
-    defaultState.packSOH = lastEntry.soh!;
-    defaultState.equivalentFullCycles = lastEntry.cycleCount;
-
     return entries;
 };
 
