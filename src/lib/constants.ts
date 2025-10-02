@@ -1,5 +1,5 @@
 
-import type { VehicleState, DriveMode, AiState } from './types';
+import type { VehicleState, DriveMode, AiState, PhantomDrainPrediction } from './types';
 
 export const defaultState: Omit<VehicleState, 'sohHistory'> = {
   odometer: 0.0,
@@ -29,6 +29,7 @@ export const defaultState: Omit<VehicleState, 'sohHistory'> = {
   powerHistory: [],
   energyConsumptionHistory: [],
   driveModeHistory: [],
+  idleHistory: [],
   lastStyleClassificationTime: 0,
   aggressiveDrivingCounter: 0,
   stabilizerEnabled: true,
@@ -83,13 +84,13 @@ export const defaultState: Omit<VehicleState, 'sohHistory'> = {
 };
 
 export const defaultAiState: AiState = {
-  sohForecast: [],
   drivingRecommendation: 'Start driving to get recommendations.',
   drivingRecommendationJustification: null,
   drivingStyle: 'Balanced',
   drivingStyleRecommendations: [],
   fatigueWarning: null,
   fatigueLevel: 0,
+  phantomDrainPrediction: null,
 };
 
 
@@ -138,5 +139,3 @@ export const MODE_SETTINGS: Record<
     strongRegenBrakeRate: 7.0,
   },
 };
-
-    

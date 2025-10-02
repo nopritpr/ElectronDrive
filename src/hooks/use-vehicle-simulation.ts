@@ -2,12 +2,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
-import type { VehicleState, DriveMode, Profile, ChargingLog, SohHistoryEntry, AiState } from '@/lib/types';
+import type { VehicleState, DriveMode, Profile, ChargingLog, SohHistoryEntry, AiState, IdlePeriod } from '@/lib/types';
 import { defaultState, EV_CONSTANTS, MODE_SETTINGS, defaultAiState } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { getDrivingRecommendation, type DrivingRecommendationInput } from '@/ai/flows/adaptive-driving-recommendations';
 import { analyzeDrivingStyle, type AnalyzeDrivingStyleInput } from '@/ai/flows/driver-profiling';
-import { forecastSoh, type SohForecastInput } from '@/ai/flows/soh-forecast-flow';
+import { estimatePhantomDrain, type PhantomDrainInput } from '@/ai/flows/phantom-drain-estimator';
 import { monitorDriverFatigue, type DriverFatigueInput } from '@/ai/flows/driver-fatigue-monitor';
 import { googleAI } from '@genkit-ai/google-genai';
 
@@ -293,16 +293,6 @@ export function useVehicleSimulation() {
         console.error("Error calling analyzeDrivingStyle:", error);
         setAiState({ drivingStyle: 'Style analysis unavailable.', drivingStyleRecommendations: [] });
     }
-
-    const sohInput: SohForecastInput = { historicalData: currentState.sohHistory };
-    try {
-        console.log("Requesting SOH forecast with input:", sohInput);
-        const soh = await forecastSoh(sohInput);
-        if (soh && soh.length > 0) setAiState({ sohForecast: soh });
-    } catch (error) {
-        console.error("Error calling forecastSoh:", error);
-        setAiState({ sohForecast: [] });
-    }
     
     const fatigueInput: DriverFatigueInput = {
         speedHistory: currentState.speedHistory.slice(0, 60),
@@ -328,8 +318,22 @@ export function useVehicleSimulation() {
         setAiState({ fatigueLevel: 0, fatigueWarning: null });
     }
 
+    const drainInput: PhantomDrainInput = { idleHistory: currentState.idleHistory };
+    try {
+        console.log("Requesting phantom drain estimation with input:", drainInput);
+        const drainResult = await estimatePhantomDrain(drainInput);
+        setAiState({ phantomDrainPrediction: drainResult });
+    } catch (error) {
+        console.error("Error calling estimatePhantomDrain:", error);
+        setAiState({ phantomDrainPrediction: null });
+    }
+
     toast({ title: 'AI Insights Refreshed!', variant: 'default' });
   }, [toast]);
+
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastIdleSocRef = useRef<number | null>(null);
+  const idleStartTimeRef = useRef<number | null>(null);
 
   const updateVehicleState = useCallback(() => {
     const prevState = vehicleStateRef.current;
@@ -340,6 +344,34 @@ export function useVehicleSimulation() {
       requestRef.current = requestAnimationFrame(updateVehicleState);
       return;
     }
+
+    let newSOC = prevState.batterySOC;
+    
+    // Handle idle state and phantom drain
+    const isIdle = prevState.speed === 0 && !prevState.isCharging;
+    if (isIdle) {
+      if (idleStartTimeRef.current === null) {
+        idleStartTimeRef.current = now;
+        lastIdleSocRef.current = prevState.batterySOC;
+      }
+      // Apply phantom drain
+      const phantomDrainPerSecond = (0.75 / 8) / 3600; // 0.75% over 8 hours
+      newSOC -= phantomDrainPerSecond * timeDelta;
+      
+    } else {
+      if (idleStartTimeRef.current !== null && lastIdleSocRef.current !== null) {
+        // Vehicle was idle, now it's not. Log the idle period.
+        const idleDurationMinutes = (now - idleStartTimeRef.current) / 60000;
+        const socDrop = lastIdleSocRef.current - newSOC;
+        if (idleDurationMinutes > 1) { // Only log significant idle periods
+          const newIdlePeriod: IdlePeriod = { durationMinutes: idleDurationMinutes, socDrop: socDrop };
+          setVehicleState({ idleHistory: [...prevState.idleHistory, newIdlePeriod].slice(-20) });
+        }
+        idleStartTimeRef.current = null;
+        lastIdleSocRef.current = null;
+      }
+    }
+
 
     const modeSettings = MODE_SETTINGS[prevState.driveMode];
     let currentAcceleration = accelerationRef.current;
@@ -375,12 +407,10 @@ export function useVehicleSimulation() {
     const ac_power_kW = prevState.acOn ? EV_CONSTANTS.acPower_kW : 0;
     const netPower_kW = power_motor_kW + ac_power_kW;
 
-    let newSOC = prevState.batterySOC;
-
     if (prevState.isCharging) {
-      const chargePerSecond = 0.2;
+      const chargePerSecond = 1 / 5; // 1% SOC per 5 seconds
       newSOC += chargePerSecond * timeDelta;
-    } else {
+    } else if (!isIdle) { // Only apply driving consumption if not idle
       const energyChange_kWh = netPower_kW * (timeDelta / 3600);
       const socChange = (energyChange_kWh / prevState.packNominalCapacity_kWh) * 100;
       newSOC -= socChange;
@@ -478,5 +508,3 @@ export function useVehicleSimulation() {
     refreshAiInsights,
   };
 }
-
-    

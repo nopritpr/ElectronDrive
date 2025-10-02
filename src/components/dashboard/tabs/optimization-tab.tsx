@@ -4,9 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import EcoScoreGauge from "../charts/eco-score-gauge";
-import SohForecastChart from "../charts/soh-forecast-chart";
 import type { VehicleState, AiState } from "@/lib/types";
-import { Leaf, User, BrainCircuit, BarChart, HeartPulse, RefreshCw } from "lucide-react";
+import { Leaf, User, BrainCircuit, BarChart, Battery, RefreshCw } from "lucide-react";
 import { useMemo, useState } from 'react';
 
 interface OptimizationTabProps {
@@ -97,20 +96,28 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                     <p className="text-xs text-muted-foreground text-center mt-2 px-2">Analyzes driving style, acceleration, and efficiency via a classification model.</p>
                 </CardContent>
             </Card>
-
-            <Card className="p-4 flex flex-col items-center justify-center">
-                <CardHeader className="items-center">
-                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Leaf className="w-4 h-4"/>Green Score</CardTitle>
+            
+            <Card className="p-4 flex flex-col">
+                <CardHeader className="p-0 pb-2">
+                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Battery className="w-4 h-4"/>Phantom Drain</CardTitle>
+                    <p className="text-xs text-muted-foreground -mt-2">Anomaly detection model for idle drain.</p>
                 </CardHeader>
-                <CardContent className="text-center">
-                    <p className="text-5xl font-bold text-green-400 font-headline">
-                        {greenScore.toFixed(1)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">kg CO₂ saved vs ICE</p>
-                    <p className="text-xs text-muted-foreground text-center mt-2">Calculated based on odometer reading vs. average emissions of a gasoline car.</p>
+                <CardContent className="p-0 flex-grow flex flex-col items-center justify-center">
+                    <div className="text-center">
+                        <p className="text-4xl font-bold text-primary font-headline">
+                            {state.phantomDrainPrediction ? state.phantomDrainPrediction.predictedDrainPercentage.toFixed(2) : '...'}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">predicted overnight drain</p>
+                    </div>
+                    {state.phantomDrainPrediction && (
+                        <p className="text-xs text-center mt-2 p-2 bg-muted/50 rounded-md">
+                            {state.phantomDrainPrediction.isAnomaly && <span className="text-destructive font-semibold">Anomaly: </span>}
+                            {state.phantomDrainPrediction.reasoning}
+                        </p>
+                    )}
                 </CardContent>
             </Card>
-            
+
             <Card className="p-4">
                 <CardHeader className="flex-row items-center justify-between p-0 mb-2">
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><User className="w-4 h-4"/>User Profile</CardTitle>
@@ -126,19 +133,16 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                 </CardContent>
             </Card>
 
-            <Card className="col-span-3 md:col-span-2 flex flex-col">
-                <CardHeader>
-                    <CardTitle className="text-sm font-headline flex items-center gap-2"><HeartPulse className="w-4 h-4"/>Battery Health (SOH) Forecast</CardTitle>
-                    <p className="text-xs text-muted-foreground -mt-2">Time-series model projecting SOH based on historical usage and driving patterns.</p>
+            <Card className="col-span-3 md:col-span-2 flex flex-col items-center justify-center">
+                <CardHeader className="items-center">
+                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Leaf className="w-4 h-4"/>Green Score</CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 min-h-0">
-                   {state.sohForecast && state.sohForecast.length > 0 ? (
-                        <SohForecastChart data={state.sohForecast} currentOdometer={state.odometer} />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                            <p className="text-sm text-muted-foreground">Generating forecast data...</p>
-                        </div>
-                    )}
+                <CardContent className="text-center">
+                    <p className="text-5xl font-bold text-green-400 font-headline">
+                        {greenScore.toFixed(1)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">kg CO₂ saved vs ICE</p>
+                    <p className="text-xs text-muted-foreground text-center mt-2">Calculated based on odometer reading vs. average emissions of a gasoline car.</p>
                 </CardContent>
             </Card>
 

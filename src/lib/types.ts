@@ -27,6 +27,11 @@ export interface SohHistoryEntry {
   sportsPercent: number;
 }
 
+export interface IdlePeriod {
+    durationMinutes: number;
+    socDrop: number;
+}
+
 
 export type VehiclePhysics = {
   acceleration: number;
@@ -143,6 +148,7 @@ export interface VehicleState {
   powerHistory: number[];
   energyConsumptionHistory: number[];
   driveModeHistory: DriveMode[];
+  idleHistory: IdlePeriod[];
   lastStyleClassificationTime: number;
   aggressiveDrivingCounter: number;
   stabilizerEnabled: boolean;
@@ -187,14 +193,18 @@ export interface VehicleState {
   rangePenalties: RangePenalties;
 }
 
+export interface PhantomDrainPrediction {
+    predictedDrainPercentage: number;
+    isAnomaly: boolean;
+    reasoning: string;
+}
+
 export interface AiState {
-  sohForecast: { odometer: number; soh: number }[];
   drivingRecommendation: string;
   drivingRecommendationJustification: string | null;
   drivingStyle: string;
   drivingStyleRecommendations: string[];
   fatigueWarning: string | null;
   fatigueLevel: number;
+  phantomDrainPrediction: PhantomDrainPrediction | null;
 }
-
-    
