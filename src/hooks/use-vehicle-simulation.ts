@@ -247,21 +247,20 @@ export function useVehicleSimulation() {
   }, []);
 
   const isIdlePredictionRunning = useRef(false);
-
   const triggerIdlePrediction = useCallback(async () => {
     if (isIdlePredictionRunning.current) return;
     isIdlePredictionRunning.current = true;
     
-    const currentState = vehicleStateRef.current;
-    const drainInput: PredictiveIdleDrainInput = {
-        currentBatterySOC: currentState.batterySOC,
-        acOn: currentState.acOn,
-        acTemp: currentState.acTemp,
-        outsideTemp: currentState.outsideTemp,
-        passengers: currentState.passengers,
-        goodsInBoot: currentState.goodsInBoot,
-    };
     try {
+        const currentState = vehicleStateRef.current;
+        const drainInput: PredictiveIdleDrainInput = {
+            currentBatterySOC: currentState.batterySOC,
+            acOn: currentState.acOn,
+            acTemp: currentState.acTemp,
+            outsideTemp: currentState.outsideTemp,
+            passengers: currentState.passengers,
+            goodsInBoot: currentState.goodsInBoot,
+        };
         const drainResult = await predictIdleDrain(drainInput);
         setAiState({ idleDrainPrediction: drainResult });
     } catch (error) {
@@ -487,12 +486,13 @@ export function useVehicleSimulation() {
 
   // Continuous Idle Prediction
   useEffect(() => {
-    // Initial call right away
+    // Trigger initial prediction immediately
     triggerIdlePrediction();
     
+    // Then trigger every 10 seconds
     const intervalId = setInterval(() => {
       triggerIdlePrediction();
-    }, 10000); // Run every 10 seconds
+    }, 10000); 
 
     return () => clearInterval(intervalId);
   }, [triggerIdlePrediction]);
@@ -545,5 +545,3 @@ export function useVehicleSimulation() {
     refreshAiInsights,
   };
 }
-
-    
