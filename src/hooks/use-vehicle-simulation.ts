@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
-import type { VehicleState, DriveMode, Profile, ChargingLog, SohHistoryEntry, AiState, IdlePeriod } from '@/lib/types';
+import type { VehicleState, DriveMode, Profile, ChargingLog, SohHistoryEntry, AiState, PredictiveIdleDrainOutput } from '@/lib/types';
 import { defaultState, EV_CONSTANTS, MODE_SETTINGS, defaultAiState } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { getDrivingRecommendation, type DrivingRecommendationInput } from '@/ai/flows/adaptive-driving-recommendations';
@@ -260,7 +260,16 @@ export function useVehicleSimulation() {
         setAiState(prevState => ({ ...prevState, idleDrainPrediction: drainResult }));
     } catch (error) {
         console.error("Error calling predictIdleDrain:", error);
-        setAiState(prevState => ({ ...prevState, idleDrainPrediction: null }));
+        
+        // Fallback to a default prediction if AI fails
+        const defaultPrediction: PredictiveIdleDrainOutput = {
+            hourlyPrediction: Array.from({ length: 8 }, (_, i) => ({
+                hour: i + 1,
+                soc: vehicleStateRef.current.batterySOC - 0.5 * (i + 1)
+            }))
+        };
+        setAiState(prevState => ({ ...prevState, idleDrainPrediction: defaultPrediction }));
+
     } finally {
         isIdlePredictionRunning.current = false;
     }
@@ -471,7 +480,7 @@ export function useVehicleSimulation() {
     calculateDynamicRange();
   }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, calculateDynamicRange]);
 
-
+  // Effect for idle prediction
   useEffect(() => {
     const idleCheckInterval = setInterval(() => {
         const currentState = vehicleStateRef.current;
@@ -481,11 +490,6 @@ export function useVehicleSimulation() {
             // If it's been idle for 3 seconds, trigger the prediction
             if (idleStartTimeRef.current && (Date.now() - idleStartTimeRef.current > 3000)) {
                 triggerIdlePrediction();
-            }
-        } else {
-            // If not idle, clear the prediction
-            if(aiStateRef.current.idleDrainPrediction !== null) {
-                setAiState({ idleDrainPrediction: null });
             }
         }
     }, 5000); // Check every 5 seconds
@@ -511,6 +515,10 @@ export function useVehicleSimulation() {
     window.addEventListener('keyup', handleKeyUp);
     
     requestRef.current = requestAnimationFrame(updateVehicleState);
+
+    // Initial AI calls
+    triggerIdlePrediction();
+    refreshAiInsights();
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);

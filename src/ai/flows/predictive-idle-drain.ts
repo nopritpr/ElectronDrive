@@ -64,14 +64,23 @@ The number of passengers and goods in the boot do not affect idle drain, as they
 
 Calculate the total hourly SOC drop based on these factors and provide a list of the predicted SOC for each of the next 8 hours. The result must be an array of 8 hourly predictions.
 
-Example Calculation for one hour:
+Calculation for one hour:
 - Base drain: 0.25%
-- Climate Control drain: If A/C is on, calculate its duty cycle. Duty Cycle = min(1, abs(outsideTemp - acTemp) / 10). A/C power is 1.5 kW. The percentage drop per hour is (1.5 * Duty Cycle) / 75 * 100.
+- Climate Control drain: If A/C is on, calculate its duty cycle. Duty Cycle = min(1.0, abs(outsideTemp - acTemp) / 10.0). A/C power is 1.5 kW. The percentage drop per hour from A/C is (1.5 * Duty Cycle) / 75.0 * 100.0.
 - Total hourly drop = Base drain + Climate Control drain.
 
-For each hour from 1 to 8, calculate the new SOC by subtracting the total hourly drop from the previous hour's SOC. The starting SOC is the 'currentBatterySOC'.
+Let's do a step-by-step calculation.
+Starting SOC is {{currentBatterySOC}}.
 
-Return the result as a JSON object with the 'hourlyPrediction' key, containing an array of 8 objects, each with 'hour' and 'soc'. The SOC value should have at most one decimal place. Do not add any commentary or explanations, just the JSON object.`,
+Hour 1:
+- Base Drain: 0.25%
+- A/C Drain: {{#if acOn}} (1.5 * min(1.0, abs({{outsideTemp}} - {{acTemp}}) / 10.0)) / 75.0 * 100.0 {{else}} 0 {{/if}} %
+- Total Hourly Drop = 0.25 + {{#if acOn}} (1.5 * min(1.0, abs({{outsideTemp}} - {{acTemp}}) / 10.0)) / 75.0 * 100.0 {{else}} 0 {{/if}}
+- Predicted SOC at end of hour 1 = {{currentBatterySOC}} - Total Hourly Drop
+
+For each subsequent hour from 2 to 8, calculate the new SOC by subtracting the same total hourly drop from the previous hour's SOC.
+
+Return ONLY the final JSON object with the 'hourlyPrediction' key, containing an array of 8 objects, each with 'hour' and 'soc'. The SOC value should have at most one decimal place. Do not add any other commentary or explanations.`,
 });
 
 const predictiveIdleDrainFlow = ai.defineFlow(
