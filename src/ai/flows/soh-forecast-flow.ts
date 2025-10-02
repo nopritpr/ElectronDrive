@@ -20,6 +20,7 @@ const SohForecastInputSchema = z.object({
       odometer: z.number().describe('Odometer reading in kilometers.'),
       cycleCount: z.number().describe('Number of charge cycles.'),
       avgBatteryTemp: z.number().describe('Average battery temperature in Celsius.'),
+      soh: z.number().optional().describe('The measured State of Health at this point.'),
       ecoPercent: z
         .number()
         .describe('Percentage of driving in Eco mode (0-100).'),
@@ -54,18 +55,20 @@ const prompt = ai.definePrompt({
   config: {
     model: 'gemini-pro',
   },
-  prompt: `You are a battery health forecasting expert. Given the historical driving data, predict the future State of Health (SOH) of the battery at different odometer readings.
+  prompt: `You are a battery health forecasting expert. Given the historical driving and battery health data for an EV, predict the future State of Health (SOH) of the battery at different future odometer readings.
 
 Historical Data:
+The following data represents the battery's SOH at various points in its life.
 {{#each historicalData}}
-  - Odometer: {{odometer}} km, Cycle Count: {{cycleCount}}, Avg. Temp: {{avgBatteryTemp}} °C, Eco: {{ecoPercent}}%, City: {{cityPercent}}%, Sports: {{sportsPercent}}%
+  - Odometer: {{odometer}} km, Cycle Count: {{cycleCount}}, Avg. Temp: {{avgBatteryTemp}}°C, SOH: {{soh}}%
 {{/each}}
 
-Based on this data, project the SOH decline. Assume a linear degradation based on odometer reading and cycle count as primary factors. High temperatures can accelerate degradation.
+Based on this data, project the SOH decline. The primary factors for degradation are odometer reading and cycle count. Higher average temperatures can accelerate degradation. The relationship is generally non-linear, with a faster decline initially, which then becomes more gradual.
 
-Provide the SOH forecast for the next 10 odometer readings, starting from the last odometer reading in the historical data and incrementing by 20,000 kilometers each time. The first value should be the predicted SOH at the next 20,000 km interval.
+The last data point represents the current state of the vehicle.
+Provide a forecast for the SOH at the next 20,000 km, 40,000 km, and 60,000 km from the current odometer reading.
 
-Ensure the output is a JSON array of objects, each containing the 'odometer' reading and the predicted 'soh' percentage.
+Ensure the output is a JSON array of objects, each containing the 'odometer' reading and the predicted 'soh' percentage for those three future milestones.
 `,
 });
 
@@ -77,10 +80,37 @@ const sohForecastFlow = ai.defineFlow(
   },
   async input => {
     // Ensure there's enough data to create a meaningful forecast.
-    if (input.historicalData.length < 1) {
+    if (input.historicalData.length < 2) {
       return [];
     }
     const {output} = await prompt(input);
-    return output!;
+    
+    if (!output) {
+        return [];
+    }
+
+    // Combine historical and forecasted data
+    const lastHistorical = input.historicalData[input.historicalData.length - 1];
+    const combinedData = [
+        ...input.historicalData,
+        ...output
+    ];
+
+    // Create a new array with unique odometer readings, preferring forecasted values
+    const dataMap = new Map<number, { odometer: number; soh: number }>();
+    combinedData.forEach(item => {
+        if(item.soh) {
+            dataMap.set(item.odometer, { odometer: item.odometer, soh: item.soh });
+        }
+    });
+
+    const uniqueData = Array.from(dataMap.values());
+
+    // Sort by odometer
+    uniqueData.sort((a, b) => a.odometer - b.odometer);
+    
+    return uniqueData;
   }
 );
+
+    

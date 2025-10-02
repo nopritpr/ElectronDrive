@@ -1,7 +1,8 @@
+
 'use client';
 
 import * as React from 'react';
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Legend } from 'recharts';
 import {
   ChartContainer,
   ChartTooltip,
@@ -10,15 +11,33 @@ import {
 
 interface SohForecastChartProps {
   data: { odometer: number; soh: number }[];
+  currentOdometer: number;
 }
 
-export default function SohForecastChart({ data }: SohForecastChartProps) {
+export default function SohForecastChart({ data, currentOdometer }: SohForecastChartProps) {
   const chartConfig = {
     soh: {
       label: 'SOH (%)',
       color: 'hsl(var(--primary))',
     },
+    historical: {
+        label: 'Historical SOH',
+        color: 'hsl(var(--primary))'
+    },
+    forecast: {
+        label: 'Forecasted SOH',
+        color: 'hsl(var(--accent))'
+    }
   };
+
+  const historicalData = data.filter(d => d.odometer <= currentOdometer);
+  const lastHistoricalPoint = historicalData[historicalData.length - 1];
+
+  const forecastData = data.filter(d => d.odometer >= currentOdometer);
+  // Ensure the forecast line connects to the historical line
+  if (lastHistoricalPoint && forecastData.length > 0 && forecastData[0].odometer !== lastHistoricalPoint.odometer) {
+    forecastData.unshift(lastHistoricalPoint);
+  }
 
   return (
     <ChartContainer config={chartConfig} className="w-full h-full">
@@ -34,7 +53,9 @@ export default function SohForecastChart({ data }: SohForecastChartProps) {
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey="odometer"
-          tickFormatter={(value) => `${value / 1000}k`}
+          type="number"
+          domain={['dataMin', 'dataMax']}
+          tickFormatter={(value) => `${Math.round(value / 1000)}k`}
           tickLine={false}
           axisLine={false}
           tickMargin={8}
@@ -52,25 +73,52 @@ export default function SohForecastChart({ data }: SohForecastChartProps) {
           content={
             <ChartTooltipContent
               labelFormatter={(value, payload) => `${payload[0]?.payload.odometer.toLocaleString()} km`}
-              formatter={(value) => [`${(value as number).toFixed(1)}%`, 'SOH']}
+              formatter={(value, name) => [`${(value as number).toFixed(1)}%`, name === 'soh' ? 'SOH' : name]}
             />
           }
         />
+        <Legend content={() => (
+            <div className="text-xs flex justify-center gap-4 mt-2">
+                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm" style={{backgroundColor: chartConfig.historical.color}}></div>Historical</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm" style={{backgroundColor: chartConfig.forecast.color}}></div>Forecast</div>
+            </div>
+        )} />
         <defs>
-            <linearGradient id="fillSoh" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-soh)" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="var(--color-soh)" stopOpacity={0.1} />
+            <linearGradient id="fillHistorical" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={chartConfig.historical.color} stopOpacity={0.8} />
+                <stop offset="95%" stopColor={chartConfig.historical.color} stopOpacity={0.1} />
+            </linearGradient>
+             <linearGradient id="fillForecast" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={chartConfig.forecast.color} stopOpacity={0.8} />
+                <stop offset="95%" stopColor={chartConfig.forecast.color} stopOpacity={0.1} />
             </linearGradient>
         </defs>
         <Area
           type="monotone"
           dataKey="soh"
-          stroke="var(--color-soh)"
+          data={historicalData}
+          stroke={chartConfig.historical.color}
           strokeWidth={2}
           fillOpacity={1}
-          fill="url(#fillSoh)"
+          fill="url(#fillHistorical)"
+          name="Historical SOH"
+          isAnimationActive={false}
+        />
+        <Area
+          type="monotone"
+          dataKey="soh"
+          data={forecastData}
+          stroke={chartConfig.forecast.color}
+          strokeWidth={2}
+          strokeDasharray="5 5"
+          fillOpacity={1}
+          fill="url(#fillForecast)"
+          name="Forecasted SOH"
+          isAnimationActive={false}
         />
       </AreaChart>
     </ChartContainer>
   );
 }
+
+    

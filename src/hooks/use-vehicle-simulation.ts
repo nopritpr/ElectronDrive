@@ -21,8 +21,54 @@ function stateReducer(state: VehicleState, action: Partial<VehicleState>): Vehic
   return { ...state, ...action };
 }
 
+const generateInitialSohHistory = (): SohHistoryEntry[] => {
+    const history: SohHistoryEntry[] = [];
+    const now = new Date();
+    const fourYearsAgo = new Date(now.setFullYear(now.getFullYear() - 4));
+    let currentOdometer = 80000; // Starting from 4 years ago
+    let currentCycleCount = 200;
+    let currentSoh = 92;
+
+    for (let i = 0; i < 8; i++) {
+        history.push({
+            odometer: currentOdometer,
+            cycleCount: currentCycleCount,
+            avgBatteryTemp: 25 + (Math.random() - 0.5) * 5,
+            soh: currentSoh,
+            ecoPercent: 60,
+            cityPercent: 30,
+            sportsPercent: 10,
+        });
+        currentOdometer -= 10000;
+        currentCycleCount -= 25;
+        currentSoh += (Math.random() * 0.5 + 0.5); // SOH increases as we go back in time
+    }
+    
+    // Set the very first entry to be at 0km and 100% SOH
+    history.push({
+        odometer: 0,
+        cycleCount: 0,
+        avgBatteryTemp: 25,
+        soh: 100,
+        ecoPercent: 100,
+        cityPercent: 0,
+        sportsPercent: 0,
+    });
+
+    return history.reverse(); // oldest first
+};
+
+const initialState = {
+    ...defaultState,
+    sohHistory: generateInitialSohHistory(),
+    odometer: 80000,
+    packSOH: 92,
+    equivalentFullCycles: 200,
+};
+
+
 export function useVehicleSimulation() {
-  const [state, setState] = useReducer(stateReducer, defaultState);
+  const [state, setState] = useReducer(stateReducer, initialState);
   const { toast } = useToast();
   
   const accelerationRef = useRef<number>(0);
@@ -40,17 +86,12 @@ export function useVehicleSimulation() {
 
   const callSohForecast = useCallback(async () => {
     const currentState = stateRef.current;
-    if (Date.now() - lastSohCheck.current < 30000) return; // run every 30s
+    if (Date.now() - lastSohCheck.current < 60000) return; // run every 60s
     lastSohCheck.current = Date.now();
 
     try {
       const soh = await forecastSoh({
-        historicalData: [{
-            odometer: currentState.odometer,
-            cycleCount: currentState.equivalentFullCycles,
-            avgBatteryTemp: currentState.batteryTemp,
-            ecoPercent: 100, cityPercent: 0, sportsPercent: 0
-        }, ...currentState.sohHistory],
+        historicalData: currentState.sohHistory,
       });
       if (soh && soh.length > 0) {
         setState({ sohForecast: soh });
@@ -385,7 +426,7 @@ export function useVehicleSimulation() {
       equivalentFullCycles: prevState.equivalentFullCycles + Math.abs((prevState.batterySOC - newSOC) / 100),
     };
 
-    if (newOdometer > lastSohHistoryUpdateOdometer.current + 50) {
+    if (newOdometer > lastSohHistoryUpdateOdometer.current + 500) {
         lastSohHistoryUpdateOdometer.current = newOdometer;
         const newSohEntry: SohHistoryEntry = {
             odometer: newOdometer,
@@ -396,7 +437,7 @@ export function useVehicleSimulation() {
             cityPercent: 0,
             sportsPercent: 0
         };
-        newState.sohHistory = [...prevState.sohHistory, newSohEntry].slice(-20);
+        newState.sohHistory = [...prevState.sohHistory, newSohEntry];
     }
     
     setState(newState);
@@ -419,15 +460,13 @@ export function useVehicleSimulation() {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
-    setDriveMode(defaultState.driveMode);
-    
     // Initial call to populate SOH forecast
     callSohForecast();
 
     requestRef.current = requestAnimationFrame(updateVehicleState);
     const aiTimer = setInterval(callAI, 10000);
     const fatigueTimer = setInterval(callFatigueMonitor, 5000);
-    const sohTimer = setInterval(callSohForecast, 30000);
+    const sohTimer = setInterval(callSohForecast, 60000);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -457,6 +496,8 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    
 
     
 

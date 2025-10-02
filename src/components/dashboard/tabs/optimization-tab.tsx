@@ -29,10 +29,10 @@ const InsightItem = ({ icon, title, description, type }: { icon: React.ReactNode
   </div>
 );
 
-const ProfileDetail = ({ label, value }: { label: string, value: string | number }) => (
+const ProfileDetail = ({ label, value }: { label: string, value: string | number | undefined }) => (
     <div className="flex justify-between items-center text-xs py-1.5 border-b border-border/50">
         <span className="text-muted-foreground">{label}</span>
-        <span className="font-mono font-medium">{value}</span>
+        <span className="font-mono font-medium">{value || 'N/A'}</span>
     </div>
 );
 
@@ -98,9 +98,9 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                 <CardContent className="p-0">
                     <div className="space-y-1">
                         <ProfileDetail label="Name" value={state.activeProfile} />
-                        <ProfileDetail label="User ID" value={activeProfileData?.id || 'N/A'} />
-                        <ProfileDetail label="Phone" value={activeProfileData?.phone || 'N/A'} />
-                        <ProfileDetail label="Age" value={activeProfileData?.age || 'N/A'} />
+                        <ProfileDetail label="User ID" value={activeProfileData?.id} />
+                        <ProfileDetail label="Phone" value={activeProfileData?.phone} />
+                        <ProfileDetail label="Age" value={activeProfileData?.age} />
                     </div>
                 </CardContent>
             </Card>
@@ -112,7 +112,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                 </CardHeader>
                 <CardContent className="flex-1 min-h-0">
                    {state.sohForecast && state.sohForecast.length > 0 ? (
-                        <SohForecastChart data={state.sohForecast} />
+                        <SohForecastChart data={state.sohForecast} currentOdometer={state.odometer} />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center">
                             <p className="text-sm text-muted-foreground">Generating forecast data...</p>
@@ -141,3 +141,5 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
         </div>
     );
 }
+
+    
