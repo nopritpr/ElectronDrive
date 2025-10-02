@@ -48,7 +48,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
     }
 
     if (state.drivingStyleRecommendations) {
-        state.drivingStyleRecommendations.slice(0, 1).forEach(rec => { // Only show top 1 style recommendation
+        state.drivingStyleRecommendations.slice(0, 1).forEach(rec => {
             allInsights.push({
                 icon: '🎯',
                 title: 'Driving Style',
@@ -127,10 +127,22 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                     <p className="text-xs text-muted-foreground">Classification model analyzing driving behavior for tips.</p>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col p-0 pt-2 min-h-0">
-                    <div className="text-xs grid grid-cols-1 gap-2 flex-grow overflow-y-auto pr-2">
-                        {insights.length > 0 ? insights.map((insight, i) => (
-                           <InsightItem key={i} {...insight} />
-                        )) : <div className="h-full flex items-center justify-center"><p className="text-muted-foreground text-center">No insights available. Drive to generate tips.</p></div> }
+                     <div className="flex-grow space-y-2 overflow-y-auto pr-2">
+                        {insights.length > 0 ? (
+                            insights.map((insight, i) => (
+                                <InsightItem
+                                    key={i}
+                                    icon={insight.icon}
+                                    title={insight.title}
+                                    description={insight.description}
+                                    justification={insight.justification}
+                                />
+                            ))
+                        ) : (
+                            <div className="h-full flex items-center justify-center">
+                                <p className="text-muted-foreground text-center text-xs">Start driving to receive live AI-powered tips to improve your range.</p>
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center justify-between mt-auto pt-4 border-t">
                         <label htmlFor="stabilizer-toggle" className="text-sm">Prediction Stabilizer</label>
