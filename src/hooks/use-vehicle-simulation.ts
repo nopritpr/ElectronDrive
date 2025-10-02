@@ -58,12 +58,12 @@ export function useVehicleSimulation() {
   }, [aiState]);
 
   const isAcImpactRunning = useRef(false);
-  const triggerAcImpactForecast = useCallback(async (overrideState: Partial<VehicleState> = {}) => {
+  const triggerAcImpactForecast = useCallback(async () => {
       if (isAcImpactRunning.current) return;
       isAcImpactRunning.current = true;
 
       try {
-          const currentState = { ...vehicleStateRef.current, ...overrideState };
+          const currentState = vehicleStateRef.current;
           const acImpactInput: AcUsageImpactInput = {
               acOn: currentState.acOn,
               acTemp: currentState.acTemp,
@@ -71,10 +71,10 @@ export function useVehicleSimulation() {
               recentWhPerKm: currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : 160,
           };
           const acImpactResult = await getAcUsageImpact(acImpactInput);
-          setAiState(prevState => ({...prevState, acUsageImpact: acImpactResult }));
+          setAiState({ acUsageImpact: acImpactResult });
       } catch (error) {
           console.error("Error calling getAcUsageImpact:", error);
-          setAiState(prevState => ({...prevState, acUsageImpact: null}));
+          setAiState({acUsageImpact: null});
       } finally {
           isAcImpactRunning.current = false;
       }
@@ -85,14 +85,11 @@ export function useVehicleSimulation() {
   };
 
   const toggleAC = () => {
-     const newAcOn = !vehicleStateRef.current.acOn;
-     setVehicleState({ acOn: newAcOn });
-     triggerAcImpactForecast({ acOn: newAcOn });
+     setVehicleState({ acOn: !vehicleStateRef.current.acOn });
   };
 
   const setAcTemp = (temp: number) => {
     setVehicleState({ acTemp: temp });
-    triggerAcImpactForecast({ acTemp: temp });
   }
 
   const setPassengers = (count: number) => {
@@ -399,28 +396,34 @@ export function useVehicleSimulation() {
   useEffect(() => {
     calculateDynamicRange();
   }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, calculateDynamicRange]);
-
+  
+  // AI Effects
   useEffect(() => {
     // Run once on mount
-    triggerAcImpactForecast();
     triggerIdlePrediction();
-
-    const aiInterval = setInterval(() => {
-      const currentState = vehicleStateRef.current;
-      const isIdle = currentState.speed === 0 && !currentState.isCharging;
-      
-      triggerAcImpactForecast();
-
+  
+    const idlePredictionInterval = setInterval(() => {
+      const isIdle = vehicleStateRef.current.speed === 0 && !vehicleStateRef.current.isCharging;
       if (isIdle) {
-        // Only trigger if it has been idle for a bit
         if (idleStartTimeRef.current && (Date.now() - idleStartTimeRef.current > 3000)) {
-            triggerIdlePrediction();
+          triggerIdlePrediction();
         }
       }
-    }, 5000); // Run every 5 seconds
+    }, 5000);
+  
+    return () => {
+      clearInterval(idlePredictionInterval);
+    };
+  }, [triggerIdlePrediction]);
 
-    return () => clearInterval(aiInterval);
-  }, [triggerIdlePrediction, triggerAcImpactForecast]);
+  useEffect(() => {
+    const acImpactDebounce = setTimeout(() => {
+        triggerAcImpactForecast();
+    }, 500);
+
+    return () => clearTimeout(acImpactDebounce);
+  }, [vehicleState.acOn, vehicleState.acTemp, vehicleState.outsideTemp, triggerAcImpactForecast]);
+
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
