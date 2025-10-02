@@ -38,7 +38,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
   const insights = useMemo(() => {
     const allInsights = [];
     
-    if (state.drivingRecommendation) {
+    if (state.drivingRecommendation && state.drivingRecommendation !== 'Start driving to get recommendations.') {
         allInsights.push({
             icon: '💡',
             title: 'Live Tip',
@@ -53,7 +53,6 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                 icon: '🎯',
                 title: 'Driving Style',
                 description: rec,
-                type: 'info'
             });
         });
     }
