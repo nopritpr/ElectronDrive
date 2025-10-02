@@ -123,7 +123,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
             </Card>
 
             <Card className="p-4 flex flex-col">
-                 <CardHeader className="p-0 pb-2">
+                <CardHeader className="p-0 pb-2">
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><BrainCircuit className="w-4 h-4"/>AI Insights & Controls</CardTitle>
                     <p className="text-xs text-muted-foreground">Classification model analyzing driving behavior for tips.</p>
                 </CardHeader>
@@ -133,7 +133,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                            <InsightItem key={i} {...insight} />
                         )) : <div className="h-full flex items-center justify-center"><p className="text-muted-foreground text-center">No insights available. Drive to generate tips.</p></div> }
                     </div>
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <div className="flex items-center justify-between mt-auto pt-4 border-t">
                         <label htmlFor="stabilizer-toggle" className="text-sm">Prediction Stabilizer</label>
                         <Switch id="stabilizer-toggle" checked={state.stabilizerEnabled} onCheckedChange={onStabilizerToggle} />
                     </div>
