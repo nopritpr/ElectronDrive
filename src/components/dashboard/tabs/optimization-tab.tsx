@@ -38,7 +38,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
   const insights = useMemo(() => {
     const allInsights = [];
     
-    if (state.drivingRecommendation) {
+    if (state.drivingRecommendation && state.drivingRecommendation !== 'Start driving to get recommendations.') {
         allInsights.push({
             icon: '💡',
             title: 'Live Tip',
@@ -139,9 +139,11 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                                 />
                             ))
                         ) : (
-                            <div className="h-full flex items-center justify-center">
-                                <p className="text-muted-foreground text-center text-xs">Start driving to receive live AI-powered tips to improve your range.</p>
-                            </div>
+                            <InsightItem
+                                icon="💡"
+                                title="Live Tip"
+                                description="Start driving to get recommendations."
+                            />
                         )}
                     </div>
                     <div className="flex items-center justify-between mt-auto pt-4 border-t">
