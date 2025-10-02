@@ -519,7 +519,7 @@ export function useVehicleSimulation() {
     window.addEventListener('keyup', handleKeyUp);
     
     requestRef.current = requestAnimationFrame(updateVehicleState);
-    refreshAiInsights();
+    // refreshAiInsights();
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);

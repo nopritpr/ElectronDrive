@@ -97,16 +97,6 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                     <p className="text-xs text-muted-foreground text-center mt-2 px-2">Analyzes driving style, acceleration, and efficiency.</p>
                 </CardContent>
             </Card>
-
-            <Card className="col-span-3 md:col-span-2 row-start-2 md:row-start-auto flex flex-col">
-                <CardHeader>
-                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Hourglass className="w-4 h-4"/>Predictive Idle Drain</CardTitle>
-                    <p className="text-xs text-muted-foreground -mt-2">Predicts battery loss over 8 hours while idle. Updates automatically.</p>
-                </CardHeader>
-                <CardContent className="p-0 flex-grow min-h-0">
-                    <IdleDrainChart data={state.idleDrainPrediction} />
-                </CardContent>
-            </Card>
             
             <Card className="p-4">
                 <CardHeader className="flex-row items-center justify-between p-0 mb-2">
@@ -132,6 +122,16 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
                         {greenScore.toFixed(1)}
                     </p>
                     <p className="text-xs text-muted-foreground">kg CO₂ saved vs ICE</p>
+                </CardContent>
+            </Card>
+
+            <Card className="col-span-3 md:col-span-2 row-start-2 md:row-start-auto flex flex-col">
+                <CardHeader>
+                    <CardTitle className="text-sm font-headline flex items-center gap-2"><Hourglass className="w-4 h-4"/>Predictive Idle Drain</CardTitle>
+                    <p className="text-xs text-muted-foreground -mt-2">Predicts battery loss over 8 hours while idle. Updates automatically.</p>
+                </CardHeader>
+                <CardContent className="p-0 flex-grow min-h-0">
+                    <IdleDrainChart data={state.idleDrainPrediction} />
                 </CardContent>
             </Card>
 
