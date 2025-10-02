@@ -10,7 +10,6 @@ import { analyzeDrivingStyle, type AnalyzeDrivingStyleInput } from '@/ai/flows/d
 import { predictIdleDrain, type PredictiveIdleDrainInput } from '@/ai/flows/predictive-idle-drain';
 import { monitorDriverFatigue, type DriverFatigueInput } from '@/ai/flows/driver-fatigue-monitor';
 import { getAcUsageImpact, type AcUsageImpactInput } from '@/ai/flows/ac-usage-impact-forecaster';
-// Import the new weather impact flow
 import { getWeatherImpact } from '@/ai/flows/weather-impact-forecast';
 
 
@@ -218,9 +217,10 @@ export function useVehicleSimulation() {
     // Temperature Penalty
     const outsideTemp = currentState.outsideTemp || 22;
     const tempDiffFromIdeal = Math.abs(22 - outsideTemp);
-    if (tempDiffFromIdeal > 5) {
-        // Penalty increases by 0.8% for every degree away from the ideal range (beyond 5 degrees)
-        penaltyPercentage.temp = (tempDiffFromIdeal - 5) * 0.008;
+    if (outsideTemp < 10) {
+        penaltyPercentage.temp = (10 - outsideTemp) * 0.01; // 1% penalty for each degree below 10°C
+    } else if (outsideTemp > 25) {
+        penaltyPercentage.temp = (outsideTemp - 25) * 0.007; // 0.7% penalty for each degree above 25°C
     }
 
     // Drive Mode Penalty
@@ -232,15 +232,14 @@ export function useVehicleSimulation() {
     const predictedRange = idealRange * (1 - totalPenaltyPercentage);
     const totalRangeLoss = idealRange - predictedRange;
 
-    // Distribute the total loss back into the penalty object for UI display
     const finalPenalties = {
-      ac: totalRangeLoss * (penaltyPercentage.ac / totalPenaltyPercentage || 0),
-      load: totalRangeLoss * (penaltyPercentage.load / totalPenaltyPercentage || 0),
-      temp: totalRangeLoss * (penaltyPercentage.temp / totalPenaltyPercentage || 0),
-      driveMode: totalRangeLoss * (penaltyPercentage.driveMode / totalPenaltyPercentage || 0),
+      ac: totalRangeLoss > 0 && totalPenaltyPercentage > 0 ? totalRangeLoss * (penaltyPercentage.ac / totalPenaltyPercentage) : 0,
+      load: totalRangeLoss > 0 && totalPenaltyPercentage > 0 ? totalRangeLoss * (penaltyPercentage.load / totalPenaltyPercentage) : 0,
+      temp: totalRangeLoss > 0 && totalPenaltyPercentage > 0 ? totalRangeLoss * (penaltyPercentage.temp / totalPenaltyPercentage) : 0,
+      driveMode: totalRangeLoss > 0 && totalPenaltyPercentage > 0 ? totalRangeLoss * (penaltyPercentage.driveMode / totalPenaltyPercentage) : 0,
     };
-
-    setVehicleState({ range: predictedRange, rangePenalties: finalPenalties });
+    
+    setVehicleState({ range: predictedRange, predictedDynamicRange: predictedRange, rangePenalties: finalPenalties });
   }, []);
 
   const isIdlePredictionRunning = useRef(false);
@@ -270,19 +269,18 @@ export function useVehicleSimulation() {
   const idleStartTimeRef = useRef<number | null>(null);
 
   const isWeatherImpactRunning = useRef(false);
-  const triggerWeatherImpactForecast = useCallback(async () => {
+  const triggerWeatherImpactForecast = useCallback(async (forecastData: FiveDayForecast) => {
     if (isWeatherImpactRunning.current) return;
-    const { weatherForecast, batterySOC, initialRange } = vehicleStateRef.current;
 
-    if (!weatherForecast) {
+    if (!forecastData) {
         return;
     }
     isWeatherImpactRunning.current = true;
     try {
       const input: GetWeatherImpactInput = {
-        currentSOC: batterySOC,
-        initialRange: initialRange,
-        forecast: weatherForecast.list.map(item => ({
+        currentSOC: vehicleStateRef.current.batterySOC,
+        initialRange: vehicleStateRef.current.initialRange,
+        forecast: forecastData.list.map(item => ({
           temp: item.main.temp,
           precipitation: item.weather[0].main,
           windSpeed: item.wind.speed,
@@ -355,32 +353,32 @@ export function useVehicleSimulation() {
     }
 
     const distanceTraveledKm = newSpeedKmh * (timeDelta / 3600);
-    const speed_ms = newSpeedKmh / 3.6;
-    const mass_kg_total = EV_CONSTANTS.mass_kg + (prevState.passengers * 70) + (prevState.goodsInBoot ? 50 : 0);
-    const F_drag = 0.5 * EV_CONSTANTS.dragCoeff * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.airDensity * Math.pow(speed_ms, 2);
-    const F_rolling = EV_CONSTANTS.rollingResistanceCoeff * mass_kg_total * EV_CONSTANTS.gravity;
-    const F_acceleration = mass_kg_total * currentAcceleration;
-    const F_total = F_drag + F_rolling + F_acceleration;
-
-    let power_motor_kW: number;
-    if (F_total > 0) power_motor_kW = (F_total * speed_ms) / (1000 * EV_CONSTANTS.drivetrainEfficiency);
-    else power_motor_kW = (F_total * speed_ms * EV_CONSTANTS.regenEfficiency) / 1000;
+    const WhPerKm = prevState.predictedDynamicRange > 0
+        ? (prevState.packNominalCapacity_kWh * (prevState.batterySOC / 100) * 1000) / prevState.predictedDynamicRange
+        : EV_CONSTANTS.baseConsumption;
     
-    const ac_power_kW = prevState.acOn ? EV_CONSTANTS.acPower_kW : 0;
-    const netPower_kW = power_motor_kW + ac_power_kW;
+    const energyUsedWh = WhPerKm * distanceTraveledKm;
+    const socUsed = (energyUsedWh / (prevState.packNominalCapacity_kWh * 1000)) * 100;
+
+    let instantPower = newSpeedKmh > 0 ? (WhPerKm * newSpeedKmh) / 1000 : 0;
+    if (currentAcceleration < -EV_CONSTANTS.gentleRegenBrakeRate) {
+        instantPower = (currentAcceleration / -modeSettings.strongRegenBrakeRate) * -50;
+    }
+
 
     if (prevState.isCharging) {
       const chargePerSecond = 1 / 5;
       newSOC += chargePerSecond * timeDelta;
     } else if (!isActuallyIdle) {
-      const energyChange_kWh = netPower_kW * (timeDelta / 3600);
-      const socChange = (energyChange_kWh / prevState.packNominalCapacity_kWh) * 100;
-      newSOC -= socChange;
+      if (currentAcceleration < -EV_CONSTANTS.gentleRegenBrakeRate) { // Strong regen
+        newSOC += socUsed * EV_CONSTANTS.regenEfficiency;
+      } else {
+        newSOC -= socUsed;
+      }
     }
     newSOC = Math.max(0, Math.min(100, newSOC));
     
     const newOdometer = prevState.odometer + distanceTraveledKm;
-    const instantPower = netPower_kW;
     
     let newEcoScore = prevState.ecoScore;
     if (newSpeedKmh > 1 && !prevState.isCharging) {
@@ -446,8 +444,9 @@ export function useVehicleSimulation() {
   }, [triggerIdlePrediction, triggerAcImpactForecast]);
 
   useEffect(() => {
-    if (vehicleState.weatherForecast) {
-      triggerWeatherImpactForecast();
+    const forecast = vehicleState.weatherForecast;
+    if (forecast) {
+      triggerWeatherImpactForecast(forecast);
     }
   }, [vehicleState.weatherForecast, triggerWeatherImpactForecast]);
 
