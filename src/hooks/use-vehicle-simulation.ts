@@ -212,6 +212,15 @@ export function useVehicleSimulation() {
     }
   }, []);
 
+  const refreshAiInsights = useCallback(async () => {
+    toast({ title: 'Refreshing AI Insights...', description: 'Please wait a moment.' });
+    await Promise.all([
+        callAiFlows(),
+        callSecondaryAiFlows(),
+    ]);
+    toast({ title: 'AI Insights Refreshed!', variant: 'default' });
+  }, [callAiFlows, callSecondaryAiFlows, toast]);
+
 
   const setDriveMode = (mode: DriveMode) => {
     setState({ driveMode: mode, driveModeHistory: [mode, ...stateRef.current.driveModeHistory].slice(0, 50) as DriveMode[] });
@@ -517,16 +526,16 @@ export function useVehicleSimulation() {
   // AI Timers
   useEffect(() => {
     const timers = [
-        setInterval(callAiFlows, 5000),
-        setInterval(callSecondaryAiFlows, 15000),
+        // setInterval(callAiFlows, 5000),
+        // setInterval(callSecondaryAiFlows, 15000),
         setInterval(callFatigueMonitor, 5000),
         setInterval(callSohForecast, 60000)
     ];
 
     // Initial calls for AI features
     callSohForecast();
-    callAiFlows();
-    callSecondaryAiFlows();
+    // callAiFlows();
+    // callSecondaryAiFlows();
     callFatigueMonitor();
 
     return () => timers.forEach(clearInterval);
@@ -580,7 +589,6 @@ export function useVehicleSimulation() {
     deleteProfile,
     setPassengers,
     toggleGoodsInBoot,
+    refreshAiInsights,
   };
 }
-
-    

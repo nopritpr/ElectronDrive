@@ -6,13 +6,14 @@ import { Switch } from "@/components/ui/switch";
 import EcoScoreGauge from "../charts/eco-score-gauge";
 import SohForecastChart from "../charts/soh-forecast-chart";
 import type { VehicleState, AiState } from "@/lib/types";
-import { Leaf, User, BrainCircuit, BarChart, HeartPulse } from "lucide-react";
-import { useMemo } from 'react';
+import { Leaf, User, BrainCircuit, BarChart, HeartPulse, RefreshCw } from "lucide-react";
+import { useMemo, useState } from 'react';
 
 interface OptimizationTabProps {
     state: VehicleState & AiState;
     onProfileSwitchClick: () => void;
     onStabilizerToggle: () => void;
+    onRefreshInsights: () => void;
 }
 
 const InsightItem = ({ icon, title, description, justification }: { icon: React.ReactNode, title: string, description: string, justification?: string | null }) => (
@@ -33,11 +34,19 @@ const ProfileDetail = ({ label, value }: { label: string, value: string | number
     </div>
 );
 
-export default function OptimizationTab({ state, onProfileSwitchClick, onStabilizerToggle }: OptimizationTabProps) {
+export default function OptimizationTab({ state, onProfileSwitchClick, onStabilizerToggle, onRefreshInsights }: OptimizationTabProps) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await onRefreshInsights();
+    setIsRefreshing(false);
+  }
 
   const insights = useMemo(() => {
     const allInsights = [];
-    const defaultRecommendation = "Start driving to get recommendations.";
+    const defaultRecommendation = "Click the refresh button to get live AI driving tips.";
+    const defaultStyle = "Click refresh to analyze your unique style.";
 
     let recommendation = state.drivingRecommendation;
     if (!recommendation || recommendation === "AI service unavailable.") {
@@ -63,7 +72,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
         allInsights.push({
             icon: '🎯',
             title: 'Driving Style',
-            description: "Drive to analyze your unique style.",
+            description: defaultStyle,
             justification: null,
         });
     }
@@ -134,9 +143,14 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
             </Card>
 
             <Card className="p-4 flex flex-col">
-                <CardHeader className="p-0 pb-2">
-                    <CardTitle className="text-sm font-headline flex items-center gap-2"><BrainCircuit className="w-4 h-4"/>AI Insights & Controls</CardTitle>
-                    <p className="text-xs text-muted-foreground">Classification model analyzing driving behavior for tips.</p>
+                <CardHeader className="p-0 pb-2 flex-row justify-between items-center">
+                    <div>
+                        <CardTitle className="text-sm font-headline flex items-center gap-2"><BrainCircuit className="w-4 h-4"/>AI Insights & Controls</CardTitle>
+                        <p className="text-xs text-muted-foreground">Classification model analyzing driving behavior for tips.</p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
+                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </Button>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col p-0 pt-2 min-h-0">
                      <div className="flex-grow space-y-2 overflow-y-auto pr-2">
@@ -159,5 +173,3 @@ export default function OptimizationTab({ state, onProfileSwitchClick, onStabili
         </div>
     );
 }
-
-    
