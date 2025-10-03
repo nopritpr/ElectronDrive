@@ -69,9 +69,7 @@ export const defaultState: Omit<VehicleState, 'sohHistory'> = {
   isCharging: false,
   profiles: {
     'Pritesh': { id: 'USR-001', driveMode: 'Eco', acTemp: 22, phone: '555-1234', age: 34 },
-    'Alex Doe': { id: 'USR-002', driveMode: 'Eco', acTemp: 22, phone: '555-5678', age: 28 },
-    'Ben Smith': { id: 'USR-003', driveMode: 'City', acTemp: 20, phone: '555-8765', age: 45 },
-    'Chloe Ray': { id: 'USR-004', driveMode: 'Sports', acTemp: 24, phone: '555-4321', age: 31 },
+    
   },
   activeProfile: 'Pritesh',
   weather: null,
