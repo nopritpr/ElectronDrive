@@ -30,8 +30,6 @@ export async function getAcUsageImpact(input: AcUsageImpactInput): Promise<AcUsa
   return acUsageImpactFlow(input);
 }
 
-// A new, simplified schema for the recommendation prompt.
-// It only takes the final calculated impact and the user's settings.
 const RecommendationPromptInputSchema = z.object({
     acOn: z.boolean(),
     acTemp: z.number(),
@@ -43,7 +41,7 @@ const recommendationPrompt = ai.definePrompt({
   name: 'acUsageRecommendationPrompt',
   input: {schema: RecommendationPromptInputSchema},
   output: {schema: z.object({ recommendation: z.string() })},
-  prompt: `You are an EV energy efficiency expert. Based on the calculated hourly range impact of {{calculatedImpact}} km, provide a single, concise, and helpful recommendation.
+  prompt: `You are an EV energy efficiency expert. Based on a calculated hourly range impact of {{calculatedImpact}} km, provide a single, concise, and helpful recommendation.
 
 The user's A/C is currently {{#if acOn}}On at {{acTemp}}°C{{else}}Off{{/if}}.
 The outside temperature is {{outsideTemp}}°C.
@@ -68,45 +66,50 @@ const acUsageImpactFlow = ai.defineFlow(
     const { acOn, acTemp, outsideTemp, recentEfficiency } = input;
     
     // Use a fallback if efficiency is zero to prevent division by zero errors
-    const vehicleEfficiency = recentEfficiency > 0 ? recentEfficiency : 150; 
+    const vehicleEfficiencyWhPerKm = recentEfficiency > 0 ? recentEfficiency : 160; 
     
-    const MAX_AC_POWER_KW = 3.0;
+    const MAX_AC_POWER_KW = 1.5; // More realistic max power for A/C compressor
 
     // Calculate Temperature Differential
     const tempDiff = Math.abs(outsideTemp - acTemp);
 
     // Calculate AC Duty Cycle and Power Consumption
-    const dutyCycle = Math.min(1.0, tempDiff / 10.0);
-    const actualAcPower = dutyCycle * MAX_AC_POWER_KW;
+    const dutyCycle = Math.min(1.0, tempDiff / 15.0); // Less aggressive duty cycle scaling
+    const acPowerKw = dutyCycle * MAX_AC_POWER_KW;
 
-    // Apply Regression Coefficients for a more nuanced prediction
-    const B0 = -2.5; // base intercept
-    const B1 = 2.1; // temperature coefficient
-    const B2 = 5.8; // power coefficient
-    const B3 = -0.03; // efficiency coefficient
-    
-    let regressionImpact = B0 + (B1 * tempDiff) + (B2 * actualAcPower) + (B3 * vehicleEfficiency);
-    
-    // Ensure the impact is realistic
-    regressionImpact = Math.max(0, regressionImpact);
+    // Calculate energy consumed by AC in one hour
+    const acEnergyWh = acPowerKw * 1000;
+
+    // Calculate the range that could have been driven with that energy
+    const potentialImpactKm = acEnergyWh / vehicleEfficiencyWhPerKm;
 
     // --- Step 2: Determine Final Output based on A/C status ---
     // If A/C is ON, the impact is a loss (negative).
     // If A/C is OFF, we show the potential impact *if it were turned on* (also as a negative, representing potential loss).
-    const finalImpactKm = acOn ? -Math.abs(regressionImpact) : -Math.abs(regressionImpact);
+    const finalImpactKm = -Math.abs(potentialImpactKm);
 
     // --- Step 3: Use the AI *only* to generate the human-friendly recommendation text. ---
+    // If A/C is off, we want to recommend what happens if they turn it on (negative impact)
+    // If A/C is on, we want to recommend what happens if they turn it off (positive impact)
+    let recommendationImpact = finalImpactKm;
+    if (acOn) {
+        // If A/C is on, the recommendation should be about the *gain* from turning it off
+        recommendationImpact = Math.abs(finalImpactKm);
+    }
+    
     const { output } = await recommendationPrompt({
       acOn: acOn,
       acTemp: acTemp,
       outsideTemp: outsideTemp,
-      calculatedImpact: finalImpactKm, // Pass the calculated loss to the prompt
+      calculatedImpact: recommendationImpact,
     });
 
     const recommendation = output?.recommendation ?? "Adjust A/C for optimal range.";
 
+    // The component always shows the *current cost* of the A/C. If it's on, it's a loss. If it's off, the cost is 0.
+    // The recommendation is separate.
     return {
-      rangeImpactKm: parseFloat(finalImpactKm.toFixed(1)),
+      rangeImpactKm: acOn ? parseFloat(finalImpactKm.toFixed(1)) : 0,
       recommendation: recommendation,
     };
   }

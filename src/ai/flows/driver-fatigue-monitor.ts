@@ -67,7 +67,7 @@ const driverFatigueMonitorFlow = ai.defineFlow(
     outputSchema: DriverFatigueOutputSchema,
   },
   async (input) => {
-    const { speedHistory, accelerationHistory, harshBrakingEvents } = input;
+    const { speedHistory, accelerationHistory } = input;
     
     if (speedHistory.length < 10 || accelerationHistory.length < 10) {
       return {
@@ -82,9 +82,8 @@ const driverFatigueMonitorFlow = ai.defineFlow(
     const speedVariance = speedHistory.reduce((sum, speed) => sum + Math.pow(speed - meanSpeed, 2), 0) / speedHistory.length;
 
     // --- Step 2: Calculate Brake Frequency ---
-    // Use the count passed from the client if available, otherwise calculate it.
-    const sharpBrakes = harshBrakingEvents ?? accelerationHistory.filter(a => a < -3.0).length;
-    const timeWindowInSeconds = speedHistory.length; 
+    const sharpBrakes = accelerationHistory.filter(a => a < -3.0).length;
+    const timeWindowInSeconds = 60; // Fixed 60-second window
     const brakeFrequency = sharpBrakes / timeWindowInSeconds; 
 
     // --- Step 3: Calculate Acceleration Inconsistency ---
@@ -92,16 +91,13 @@ const driverFatigueMonitorFlow = ai.defineFlow(
     for (let i = 1; i < accelerationHistory.length; i++) {
         accelChanges += Math.abs(accelerationHistory[i] - accelerationHistory[i-1]);
     }
-    // Avoid division by zero if there's only one entry
     const accelInconsistency = accelerationHistory.length > 1 ? accelChanges / (accelerationHistory.length - 1) : 0;
     
     // --- Step 4: Fatigue Confidence Calculation ---
-    // A small negative base intercept ensures confidence is never exactly zero for perfect driving.
-    const B0 = -1.5;
-    // Weights are recalibrated to be highly sensitive to erratic driving patterns.
-    const w1 = 0.2;  // weight for speed_variance
-    const w2 = 30.0; // weight for brake_frequency (high impact)
-    const w3 = 1.5;  // weight for accel_inconsistency
+    const B0 = -0.5; // Base intercept to prevent 0 confidence
+    const w1 = 0.4;  // weight for speed_variance
+    const w2 = 50.0; // High weight for brake_frequency
+    const w3 = 2.0;  // weight for accel_inconsistency
     
     const z = B0 + (w1 * speedVariance) + (w2 * brakeFrequency) + (w3 * accelInconsistency);
     

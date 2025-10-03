@@ -60,9 +60,9 @@ const predictiveIdleDrainFlow = ai.defineFlow(
       acDrain = dutyCycle * 2.1;
     }
 
-    // Temp_Penalty = temperature_efficiency_loss
-    // Simple model based on example: 0.1% penalty for every degree over 25°C
-    const tempPenalty = outsideTemp > 25 ? (outsideTemp - 25) * 0.1 : 0;
+    // Temp_Penalty = Simple model based on example: 0.3% penalty for 30C
+    // Linear penalty for temps over 25°C
+    const tempPenalty = outsideTemp > 25 ? (outsideTemp - 25) * 0.06 : 0; // 0.06 * 5 = 0.3% at 30C
 
     // Total_Hourly_Drain
     const totalHourlyDrain = baseDrain + acDrain + tempPenalty;
@@ -73,6 +73,8 @@ const predictiveIdleDrainFlow = ai.defineFlow(
 
     for (let i = 1; i <= 8; i++) {
       currentSOC -= totalHourlyDrain;
+      // Ensure SOC doesn't go below 0
+      currentSOC = Math.max(0, currentSOC);
       hourlyPrediction.push({
         hour: i,
         soc: parseFloat(currentSOC.toFixed(2)),
