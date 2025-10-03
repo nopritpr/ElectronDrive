@@ -77,17 +77,17 @@ const driverFatigueMonitorFlow = ai.defineFlow(
       };
     }
 
-    // Step 1: Calculate Speed Variance
+    // --- Step 1: Calculate Speed Variance ---
     const meanSpeed = speedHistory.reduce((a, b) => a + b, 0) / speedHistory.length;
     const speedVariance = speedHistory.reduce((sum, speed) => sum + Math.pow(speed - meanSpeed, 2), 0) / speedHistory.length;
 
-    // Step 2: Calculate Brake Frequency
+    // --- Step 2: Calculate Brake Frequency ---
     // Use the count passed from the client if available, otherwise calculate it.
     const sharpBrakes = harshBrakingEvents ?? accelerationHistory.filter(a => a < -3.0).length;
     const timeWindowInSeconds = 60; // Fixed 60-second window
     const brakeFrequency = sharpBrakes / timeWindowInSeconds; 
 
-    // Step 3: Calculate Acceleration Inconsistency
+    // --- Step 3: Calculate Acceleration Inconsistency ---
     let accelChanges = 0;
     for (let i = 1; i < accelerationHistory.length; i++) {
         accelChanges += Math.abs(accelerationHistory[i] - accelerationHistory[i-1]);
@@ -95,10 +95,11 @@ const driverFatigueMonitorFlow = ai.defineFlow(
     // Avoid division by zero if there's only one entry
     const accelInconsistency = accelerationHistory.length > 1 ? accelChanges / (accelerationHistory.length - 1) : 0;
     
-    // Step 4: Fatigue Confidence Calculation
+    // --- Step 4: Fatigue Confidence Calculation ---
+    // Weights are adjusted to make the model more sensitive to driver input.
     const w1 = 0.4; // weight for speed_variance
-    const w2 = 0.3; // weight for brake_frequency
-    const w3 = 0.3; // weight for accel_inconsistency
+    const w2 = 15.0; // weight for brake_frequency (increased significantly)
+    const w3 = 0.8; // weight for accel_inconsistency (increased)
     const z = (w1 * speedVariance) + (w2 * brakeFrequency) + (w3 * accelInconsistency);
 
     const fatigueConfidence = 1 / (1 + Math.exp(-z));
@@ -113,7 +114,7 @@ const driverFatigueMonitorFlow = ai.defineFlow(
 
     const reasoning = output?.reasoning ?? "Driving patterns analyzed.";
 
-    // Step 6: Determine Final Output
+    // --- Step 6: Determine Final Output ---
     return {
       isFatigued: fatigueConfidence > 0.75, // Set a threshold for the warning
       confidence: parseFloat(fatigueConfidence.toFixed(3)),
