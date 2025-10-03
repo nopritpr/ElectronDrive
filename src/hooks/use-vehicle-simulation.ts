@@ -77,6 +77,7 @@ export function useVehicleSimulation() {
       }
     };
     
+    // This effect will now correctly re-run whenever the dependencies change.
     triggerAcImpactForecast();
   }, [vehicleState.acOn, vehicleState.acTemp, vehicleState.outsideTemp, vehicleState.recentWhPerKm]);
 
