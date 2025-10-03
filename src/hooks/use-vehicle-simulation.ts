@@ -60,11 +60,12 @@ export function useVehicleSimulation() {
   }, [aiState]);
 
   const isAcImpactRunning = useRef(false);
-  const triggerAcImpactForecast = useCallback(async () => {
+  const triggerAcImpactForecast = async () => {
     if (isAcImpactRunning.current) return;
     isAcImpactRunning.current = true;
-    
+
     // Use a slight delay to get the most up-to-date state from the ref
+    // This is a workaround for the state update being queued.
     setTimeout(async () => {
         try {
             const currentState = vehicleStateRef.current;
@@ -83,7 +84,7 @@ export function useVehicleSimulation() {
             isAcImpactRunning.current = false;
         }
     }, 100);
-  }, []);
+  };
 
   const setDriveMode = (mode: DriveMode) => {
     setVehicleState({ driveMode: mode, driveModeHistory: [mode, ...vehicleStateRef.current.driveModeHistory].slice(0, 50) as DriveMode[] });
@@ -447,7 +448,8 @@ export function useVehicleSimulation() {
       clearInterval(idlePredictionInterval);
       clearInterval(fatigueCheckInterval);
     };
-  }, [triggerIdlePrediction, triggerAcImpactForecast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerIdlePrediction]);
 
   const isWeatherImpactRunning = useRef(false);
 
