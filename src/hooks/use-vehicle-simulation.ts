@@ -12,6 +12,15 @@ import { monitorDriverFatigue, type DriverFatigueInput } from '@/ai/flows/driver
 import { getAcUsageImpact, type AcUsageImpactInput } from '@/ai/flows/ac-usage-impact-forecaster';
 import { getWeatherImpact } from '@/ai/flows/weather-impact-forecast';
 
+// Debounce utility
+const debounce = (func: (...args: any[]) => void, delay: number) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), delay);
+  };
+};
+
 
 const keys: Record<string, boolean> = {
   ArrowUp: false,
@@ -58,30 +67,6 @@ export function useVehicleSimulation() {
   useEffect(() => {
     aiStateRef.current = aiState;
   }, [aiState]);
-
-  // This is the corrected effect for A/C impact forecasting.
-  useEffect(() => {
-    const triggerAcImpactForecast = async () => {
-      // Use a local copy of the state to avoid stale closures
-      const currentState = vehicleStateRef.current;
-      try {
-        const acImpactInput: AcUsageImpactInput = {
-            acOn: currentState.acOn,
-            acTemp: currentState.acTemp,
-            outsideTemp: currentState.outsideTemp,
-            recentEfficiency: currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : 160,
-        };
-        const acImpactResult = await getAcUsageImpact(acImpactInput);
-        setAiState({ acUsageImpact: acImpactResult });
-      } catch (error) {
-          console.error("Error calling getAcUsageImpact:", error);
-          setAiState({ acUsageImpact: null });
-      }
-    };
-    
-    // Call it immediately on mount and whenever dependencies change.
-    triggerAcImpactForecast();
-  }, [vehicleState.acOn, vehicleState.acTemp, vehicleState.outsideTemp, vehicleState.recentWhPerKm]);
 
 
   const setDriveMode = (mode: DriveMode) => {
@@ -238,31 +223,66 @@ export function useVehicleSimulation() {
     setVehicleState({ range: predictedRange, predictedDynamicRange: predictedRange, rangePenalties: finalPenalties });
   }, []);
 
-  const isIdlePredictionRunning = useRef(false);
-  const triggerIdlePrediction = useCallback(async () => {
-    if (isIdlePredictionRunning.current) return;
-    isIdlePredictionRunning.current = true;
-    
+  const triggerAcUsageImpact = useCallback(debounce(async () => {
+    const currentState = vehicleStateRef.current;
     try {
-        const currentState = vehicleStateRef.current;
-        const drainInput: PredictiveIdleDrainInput = {
-            currentBatterySOC: currentState.batterySOC,
-            acOn: currentState.acOn,
-            acTemp: currentState.acTemp,
-            outsideTemp: currentState.outsideTemp,
-            passengers: currentState.passengers,
-            goodsInBoot: currentState.goodsInBoot,
-        };
-        const drainResult = await predictIdleDrain(drainInput);
-        setAiState(prevState => ({ ...prevState, idleDrainPrediction: drainResult }));
+      const acImpactInput: AcUsageImpactInput = {
+        acOn: currentState.acOn,
+        acTemp: currentState.acTemp,
+        outsideTemp: currentState.outsideTemp,
+        recentEfficiency: currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : 160,
+      };
+      const acImpactResult = await getAcUsageImpact(acImpactInput);
+      setAiState({ acUsageImpact: acImpactResult });
     } catch (error) {
-        console.error("Error calling predictIdleDrain:", error);
-    } finally {
-        isIdlePredictionRunning.current = false;
+      console.error("Error calling getAcUsageImpact:", error);
+      setAiState({ acUsageImpact: null });
     }
-  }, []);
+  }, 2000), []);
 
-  const idleStartTimeRef = useRef<number | null>(null);
+  const triggerFatigueCheck = useCallback(debounce(async () => {
+    const currentState = vehicleStateRef.current;
+    if (currentState.speed < 10) {
+      setAiState({ fatigueLevel: 0, fatigueWarning: null });
+      return;
+    }
+    try {
+      const historyWindow = currentState.accelerationHistory.slice(0, 60);
+      const fatigueInput: DriverFatigueInput = {
+        speedHistory: currentState.speedHistory.slice(0, 60),
+        accelerationHistory: historyWindow,
+        harshBrakingEvents: historyWindow.filter(a => a < -3).length,
+      };
+      const fatigueResult = await monitorDriverFatigue(fatigueInput);
+      setAiState(prevState => ({
+        ...prevState,
+        fatigueLevel: fatigueResult.confidence,
+        fatigueWarning: fatigueResult.isFatigued ? fatigueResult.reasoning : null,
+      }));
+    } catch (error) {
+      console.error("Error calling monitorDriverFatigue:", error);
+    }
+  }, 3000), []);
+
+  const triggerIdlePrediction = useCallback(debounce(async () => {
+    const currentState = vehicleStateRef.current;
+    if (currentState.speed > 0 || currentState.isCharging) return;
+    try {
+      const drainInput: PredictiveIdleDrainInput = {
+        currentBatterySOC: currentState.batterySOC,
+        acOn: currentState.acOn,
+        acTemp: currentState.acTemp,
+        outsideTemp: currentState.outsideTemp,
+        passengers: currentState.passengers,
+        goodsInBoot: currentState.goodsInBoot,
+      };
+      const drainResult = await predictIdleDrain(drainInput);
+      setAiState(prevState => ({ ...prevState, idleDrainPrediction: drainResult }));
+    } catch (error) {
+      console.error("Error calling predictIdleDrain:", error);
+    }
+  }, 5000), []);
+
 
   const updateVehicleState = useCallback(() => {
     const prevState = vehicleStateRef.current;
@@ -279,9 +299,6 @@ export function useVehicleSimulation() {
     const isActuallyIdle = prevState.speed === 0 && !prevState.isCharging;
 
     if (isActuallyIdle) {
-      if (idleStartTimeRef.current === null) {
-        idleStartTimeRef.current = now;
-      }
       const basePhantomDrainPerHour = 0.25; 
       let totalDrainPerHour = basePhantomDrainPerHour;
 
@@ -296,10 +313,7 @@ export function useVehicleSimulation() {
       const totalDrainPerSecond = totalDrainPerHour / 3600;
       newSOC -= totalDrainPerSecond * timeDelta;
       
-    } else {
-       idleStartTimeRef.current = null;
     }
-
 
     const modeSettings = MODE_SETTINGS[prevState.driveMode];
     let currentAcceleration = accelerationRef.current;
@@ -393,63 +407,20 @@ export function useVehicleSimulation() {
     }
     
     setVehicleState(newVehicleState);
+
+    // Trigger AI calls
+    triggerAcUsageImpact();
+    triggerFatigueCheck();
+    triggerIdlePrediction();
+
+
     requestRef.current = requestAnimationFrame(updateVehicleState);
-  }, []);
+  }, [triggerAcUsageImpact, triggerFatigueCheck, triggerIdlePrediction]);
 
   useEffect(() => {
     calculateDynamicRange();
   }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, calculateDynamicRange]);
   
-  // AI Effects
-  useEffect(() => {
-    const fatigueCheckInterval = setInterval(async () => {
-        const isFatigueCheckRunning = { current: false };
-        if (isFatigueCheckRunning.current) return;
-        isFatigueCheckRunning.current = true;
-        try {
-            const currentState = vehicleStateRef.current;
-            if (currentState.speed < 10) { // Don't check when stationary or slow
-                setAiState({ fatigueLevel: 0, fatigueWarning: null });
-                isFatigueCheckRunning.current = false;
-                return;
-            }
-            const historyWindow = currentState.accelerationHistory.slice(0, 60);
-            const fatigueInput: DriverFatigueInput = {
-                speedHistory: currentState.speedHistory.slice(0, 60),
-                accelerationHistory: historyWindow,
-                harshBrakingEvents: historyWindow.filter(a => a < -3).length,
-                harshAccelerationEvents: historyWindow.filter(a => a > 3).length,
-            };
-            const fatigueResult = await monitorDriverFatigue(fatigueInput);
-            setAiState(prevState => ({
-                ...prevState,
-                fatigueLevel: fatigueResult.confidence,
-                fatigueWarning: fatigueResult.isFatigued ? fatigueResult.reasoning : null,
-            }));
-
-        } catch (error) {
-            console.error("Error calling monitorDriverFatigue:", error);
-        } finally {
-            isFatigueCheckRunning.current = false;
-        }
-    }, 5000);
-
-
-    const idlePredictionInterval = setInterval(() => {
-      const isIdle = vehicleStateRef.current.speed === 0 && !vehicleStateRef.current.isCharging;
-      if (isIdle) {
-        if (idleStartTimeRef.current && (Date.now() - idleStartTimeRef.current > 3000)) {
-          triggerIdlePrediction();
-        }
-      }
-    }, 5000);
-  
-    return () => {
-      clearInterval(idlePredictionInterval);
-      clearInterval(fatigueCheckInterval);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [triggerIdlePrediction]);
 
   const isWeatherImpactRunning = useRef(false);
 
