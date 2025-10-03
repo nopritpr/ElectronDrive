@@ -53,11 +53,13 @@ const driverFatigueMonitorFlow = ai.defineFlow(
     const speedVariance = speedHistory.reduce((sum, speed) => sum + Math.pow(speed - meanSpeed, 2), 0) / speedHistory.length;
 
     // --- Step 2: Calculate Sharp Brake Frequency ---
+    // A sharp brake is a significant negative acceleration.
     const sharpBrakes = accelerationHistory.filter(a => a < -3.0).length;
-    const timeWindowInSeconds = accelerationHistory.length; // More accurate window
-    const brakeFrequency = sharpBrakes / timeWindowInSeconds; 
+    const timeWindowInSeconds = accelerationHistory.length; // Assume 1 data point per second
+    const brakeFrequency = sharpBrakes / timeWindowInSeconds; // Brakes per second
 
     // --- Step 3: Calculate Acceleration Inconsistency ---
+    // This measures how "jerky" the driving is by summing the absolute change in acceleration.
     let accelChanges = 0;
     for (let i = 1; i < accelerationHistory.length; i++) {
         accelChanges += Math.abs(accelerationHistory[i] - accelerationHistory[i-1]);
@@ -71,12 +73,13 @@ const driverFatigueMonitorFlow = ai.defineFlow(
     const w2 = 25.0;  // High weight for brake_frequency
     const w3 = 1.0;   // Weight for accel_inconsistency
     
+    // The Z-score is a linear combination of the weighted metrics.
     const z = B0 + (w1 * speedVariance) + (w2 * brakeFrequency) + (w3 * accelInconsistency);
     
     // Sigmoid function to map Z-score to a probability (0-1)
     const fatigueConfidence = 1 / (1 + Math.exp(-z));
     
-    // Step 5: Generate human-friendly reasoning text.
+    // Step 5: Generate human-friendly reasoning text based on confidence.
     let reasoning: string;
     if (fatigueConfidence > 0.75) {
         reasoning = "High variance in speed and inconsistent acceleration patterns detected, suggesting fatigue.";
