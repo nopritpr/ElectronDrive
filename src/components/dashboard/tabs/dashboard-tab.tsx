@@ -230,7 +230,7 @@ export default function DashboardTab({
               } as React.CSSProperties}
             ></div>
             <Image
-              src="https://storage.googleapis.com/studioprompt-images/technical-interview/red-car-top-view.png"
+              src="https://storage.googleapis.com/studioprompt-images/652f1e29-28c9-4444-9372-8d48479e008c.png"
               alt="EV Car"
               width={200}
               height={200}
@@ -270,5 +270,3 @@ export default function DashboardTab({
     </div>
   );
 }
-
-    
