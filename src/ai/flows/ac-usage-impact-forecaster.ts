@@ -111,5 +111,3 @@ const acUsageImpactFlow = ai.defineFlow(
     };
   }
 );
-
-    
