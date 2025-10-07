@@ -22,7 +22,7 @@ const weatherImpactPrompt = ai.definePrompt({
   input: {schema: GetWeatherImpactInputSchema},
   output: {schema: GetWeatherImpactOutputSchema},
   config: {
-    model: googleAI.model('gemini-pro'),
+    model: googleAI.model('gemini-1.5-flash-preview'),
   },
   prompt: `You are an expert Electric Vehicle energy consumption model. Your task is to predict the daily range penalty in kilometers for the next 5 days based on the provided weather forecast.
 
