@@ -408,7 +408,6 @@ export function useVehicleSimulation() {
       recentWhPerKmWindow: newRecentWhPerKmWindow,
       lastUpdate: now,
       displaySpeed: prevState.displaySpeed + (newSpeedKmh - prevState.displaySpeed) * 0.1,
-      // speedHistory and accelerationHistory are updated in triggerFatigueCheck
       powerHistory: [instantPower, ...prevState.powerHistory].slice(0, 100),
       ecoScore: newEcoScore,
       packSOH: Math.max(70, prevState.packSOH - Math.abs((prevState.batterySOC - newSOC) * 0.000001)),
