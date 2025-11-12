@@ -68,10 +68,10 @@ const driverFatigueMonitorFlow = ai.defineFlow(
     
     // --- Step 4: Fatigue Confidence Calculation (Corrected) ---
     // These weights and intercept are tuned to be sensitive to the input metrics.
-    const B0 = -2.5;  // Base intercept to keep confidence low for normal driving.
-    const w1 = 0.25;   // Weight for speed_variance
-    const w2 = 25.0;  // High weight for brake_frequency
-    const w3 = 1.0;   // Weight for accel_inconsistency
+    const B0 = -2.0;  // Intercept calibrated for typical driving being low confidence.
+    const w1 = 0.3;   // Weight for speed_variance
+    const w2 = 30.0;  // High weight for brake_frequency
+    const w3 = 1.5;   // Weight for accel_inconsistency
     
     // The Z-score is a linear combination of the weighted metrics.
     const z = B0 + (w1 * speedVariance) + (w2 * brakeFrequency) + (w3 * accelInconsistency);
@@ -97,7 +97,3 @@ const driverFatigueMonitorFlow = ai.defineFlow(
     };
   }
 );
-
-    
-
-    
