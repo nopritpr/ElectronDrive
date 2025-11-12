@@ -105,6 +105,9 @@ export function useVehicleSimulation() {
     let newLogs = [...currentState.chargingLogs];
 
     if (isCharging) {
+      // Prevent starting a new charge log if one is already active
+      if (currentState.lastChargeLog) return;
+      
       setVehicleState({
         isCharging,
         lastChargeLog: {
@@ -187,8 +190,8 @@ export function useVehicleSimulation() {
     let penaltyPercentage = { ac: 0, load: 0, temp: 0, driveMode: 0 };
     
     // AC Penalty - now sourced from the AI model if available
-    const acImpactKm = currentAiState.acUsageImpact ? Math.abs(currentAiState.acUsageImpact.rangeImpactKm) : 0;
-    if (idealRange > 0) {
+    const acImpactKm = currentAiState.acUsageImpact ? Math.abs(currentAiState.acUsageImpact.rangeImpactKm) : (currentState.acOn ? 5 : 0);
+    if (idealRange > 0 && currentState.acOn) {
       penaltyPercentage.ac = acImpactKm / idealRange;
     }
 
@@ -239,24 +242,19 @@ export function useVehicleSimulation() {
       console.error("Error calling getAcUsageImpact:", error);
       setAiState({ acUsageImpact: null });
     }
-  }, 2000), []);
+  }, 500), []);
 
-  const triggerFatigueCheck = useCallback(async (currentSpeed: number, currentAcceleration: number) => {
+  const triggerFatigueCheck = useCallback(debounce(async () => {
     const currentState = vehicleStateRef.current;
+    const { speedHistory, accelerationHistory, speed } = currentState;
     
-    // Update histories with the latest data BEFORE calling the AI
-    const speedHistory = [currentSpeed, ...currentState.speedHistory].slice(0, 60);
-    const accelerationHistory = [currentAcceleration, ...currentState.accelerationHistory].slice(0, 60);
-
-    // Update the state with the new histories so the next tick has them
-    setVehicleState({ speedHistory, accelerationHistory });
-    
-    if (currentSpeed < 10) {
-      // Reset fatigue level if speed is low, but don't clear warning immediately
-      setAiState({ fatigueLevel: 0 });
+    if (speed < 10) {
+      setAiState({ fatigueLevel: 0, fatigueWarning: null });
       return;
     }
     
+    if (speedHistory.length < 10) return;
+
     try {
       const fatigueInput: DriverFatigueInput = {
         speedHistory: speedHistory,
@@ -267,16 +265,13 @@ export function useVehicleSimulation() {
       setAiState(prevState => ({
         ...prevState,
         fatigueLevel: fatigueResult.confidence,
-        fatigueWarning: fatigueResult.isFatigued ? fatigueResult.reasoning : prevState.fatigueWarning, // Don't clear warning on non-fatigued result
+        fatigueWarning: fatigueResult.isFatigued ? fatigueResult.reasoning : (fatigueResult.confidence < 0.5 ? null : prevState.fatigueWarning),
       }));
-      if (fatigueResult.confidence < 0.5) {
-        setAiState({ fatigueWarning: null });
-      }
 
     } catch (error) {
       console.error("Error calling monitorDriverFatigue:", error);
     }
-  }, []);
+  }, 2000), []);
 
   const triggerIdlePrediction = useCallback(debounce(async () => {
     const currentState = vehicleStateRef.current;
@@ -412,6 +407,8 @@ export function useVehicleSimulation() {
       ecoScore: newEcoScore,
       packSOH: Math.max(70, prevState.packSOH - Math.abs((prevState.batterySOC - newSOC) * 0.000001)),
       equivalentFullCycles: prevState.equivalentFullCycles + Math.abs((prevState.batterySOC - newSOC) / 100),
+      speedHistory: [newSpeedKmh, ...prevState.speedHistory].slice(0, 60),
+      accelerationHistory: [currentAcceleration, ...prevState.accelerationHistory].slice(0, 60),
     };
 
     if (newOdometer > lastSohHistoryUpdateOdometer.current + 500) {
@@ -429,8 +426,8 @@ export function useVehicleSimulation() {
     setVehicleState(newVehicleState);
 
     // Throttled AI calls
-    if (now > lastFatigueCheckTime.current + 2000) { // Check every 2 seconds
-        triggerFatigueCheck(newSpeedKmh, currentAcceleration);
+    if (now > lastFatigueCheckTime.current + 2000) {
+        triggerFatigueCheck();
         lastFatigueCheckTime.current = now;
     }
 
@@ -488,6 +485,7 @@ export function useVehicleSimulation() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return; // Prevent keydown from firing repeatedly
       if (e.key in keys) { e.preventDefault(); keys[e.key] = true; }
       if (e.key.toLowerCase() === 'c') toggleCharging();
       if (e.key === '1') setDriveMode('Eco');
@@ -532,4 +530,5 @@ export function useVehicleSimulation() {
     
 
     
+
 
