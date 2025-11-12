@@ -104,7 +104,6 @@ export function useVehicleSimulation() {
       const now = Date.now();
   
       if (isNowCharging) {
-        // Prevent starting a new log if one seems active
         if (currentState.lastChargeLog) return currentState;
         return {
           ...currentState,
@@ -115,8 +114,7 @@ export function useVehicleSimulation() {
           }
         };
       } else {
-        // Stop charging and log the session
-        if (!currentState.lastChargeLog) return { ...currentState, isCharging: false }; // Should not happen
+        if (!currentState.lastChargeLog) return { ...currentState, isCharging: false }; 
         
         const log = currentState.lastChargeLog;
         const energyAdded = (currentState.batterySOC - log.startSOC) / 100 * currentState.packNominalCapacity_kWh;
@@ -129,17 +127,18 @@ export function useVehicleSimulation() {
           energyAdded: Math.max(0, energyAdded),
         };
         
-        const newLogs = [...currentState.chargingLogs, newLog].slice(-10); // Keep last 10 logs
+        const newLogs = [...currentState.chargingLogs, newLog].slice(-10);
   
         return {
           ...currentState,
           isCharging: false,
           chargingLogs: newLogs,
-          lastChargeLog: undefined, // Clear the active charge log
+          lastChargeLog: undefined,
         };
       }
     });
   };
+
   const resetTrip = () => {
     const currentState = vehicleStateRef.current;
     if (currentState.activeTrip === 'A') setVehicleState({ tripA: 0 });
@@ -196,33 +195,28 @@ export function useVehicleSimulation() {
 
     let penaltyPercentage = { ac: 0, load: 0, temp: 0, driveMode: 0 };
     
-    // AC Penalty - now sourced from the AI model if available
-    const acImpactKm = currentAiState.acUsageImpact && currentState.acOn ? Math.abs(currentAiState.acUsageImpact.rangeImpactKm) : 0;
-    if (idealRange > 0 && currentState.acOn) {
-      // This is a rough estimation of the penalty over the *entire remaining range* not just per hour
-      // For a more accurate instantaneous breakdown, we use the hourly rate as a proxy for current severity
-      penaltyPercentage.ac = (acImpactKm*2) / idealRange; // Multiplied by 2 for a more noticeable impact visualization
+    if (currentAiState.acUsageImpact && currentState.acOn) {
+        const acImpactKm = Math.abs(currentAiState.acUsageImpact.rangeImpactKm);
+        if (idealRange > 0) {
+            penaltyPercentage.ac = (acImpactKm * 1.5) / idealRange; 
+        }
     }
 
-    // Load Penalty
     const passengerPenalty = (currentState.passengers - 1) * 0.015;
     const goodsPenalty = currentState.goodsInBoot ? 0.03 : 0;
     penaltyPercentage.load = passengerPenalty + goodsPenalty;
     
-    // Temperature Penalty
     const outsideTemp = currentState.outsideTemp || 22;
     if (outsideTemp < 10) {
-        penaltyPercentage.temp = (10 - outsideTemp) * 0.01; // 1% penalty for each degree below 10°C
+        penaltyPercentage.temp = (10 - outsideTemp) * 0.01;
     } else if (outsideTemp > 25) {
-        penaltyPercentage.temp = (outsideTemp - 25) * 0.007; // 0.7% penalty for each degree above 25°C
+        penaltyPercentage.temp = (outsideTemp - 25) * 0.007;
     }
 
-    // Drive Mode Penalty
     if (currentState.driveMode === 'City') penaltyPercentage.driveMode = 0.07;
     else if (currentState.driveMode === 'Sports') penaltyPercentage.driveMode = 0.18;
 
     const totalPenaltyPercentage = penaltyPercentage.ac + penaltyPercentage.load + penaltyPercentage.temp + penaltyPercentage.driveMode;
-
     const predictedRange = idealRange * (1 - totalPenaltyPercentage);
     
     const finalPenalties = {
@@ -355,28 +349,25 @@ export function useVehicleSimulation() {
 
     const distanceTraveledKm = newSpeedKmh * (timeDelta / 3600);
     
-    // Physics-based power calculation
     const fAero = EV_CONSTANTS.dragCoeff * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.airDensity * Math.pow(speedMs, 2) * 0.5;
     const fRoll = EV_CONSTANTS.rollingResistanceCoeff * EV_CONSTANTS.mass_kg * EV_CONSTANTS.gravity;
     const fInertia = EV_CONSTANTS.mass_kg * currentAcceleration;
 
     const totalTractiveForce = fAero + fRoll + fInertia;
-    const tractivePower = totalTractiveForce * speedMs; // Power in Watts
-    let instantPower = tractivePower / (1000 * EV_CONSTANTS.drivetrainEfficiency); // Power in kW
+    let instantPower = (totalTractiveForce * speedMs) / 1000;
 
-    if (instantPower < 0) { // Regenerative Braking
+    if (instantPower < 0) {
       instantPower *= EV_CONSTANTS.regenEfficiency;
     }
-     // Add AC power consumption
+    instantPower /= EV_CONSTANTS.drivetrainEfficiency;
+
     if (prevState.acOn) {
         instantPower += EV_CONSTANTS.acPower_kW * (Math.min(1, Math.abs(prevState.acTemp - prevState.outsideTemp) / 10));
     }
 
-
-    const energyUsedKwh = Math.max(0, instantPower) * (timeDelta / 3600);
-    const energyGainedKwh = Math.min(0, instantPower) * (timeDelta / 3600);
-
-    const socDelta = ((energyUsedKwh + energyGainedKwh) / prevState.packNominalCapacity_kWh) * 100;
+    const energyUsedKwh = instantPower * (timeDelta / 3600);
+    
+    const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
     
     if (prevState.isCharging) {
       const chargePerSecond = 1 / 5;
@@ -394,7 +385,6 @@ export function useVehicleSimulation() {
         newEcoScore = prevState.ecoScore * 0.99 + currentScore * 0.01;
     }
 
-    // Update recentWhPerKm
     const currentWhPerKm = instantPower > 0 && newSpeedKmh > 0 ? (instantPower * 1000) / newSpeedKmh : (distanceTraveledKm > 0 ? 0 : prevState.recentWhPerKm);
     const newRecentWhPerKmWindow = [currentWhPerKm, ...prevState.recentWhPerKmWindow].slice(0, 50);
     const newRecentWhPerKm = newRecentWhPerKmWindow.reduce((a, b) => a + b) / newRecentWhPerKmWindow.length;
@@ -433,7 +423,6 @@ export function useVehicleSimulation() {
     
     setVehicleState(newVehicleState);
 
-    // Throttled AI calls
     if (now > lastFatigueCheckTime.current + 2000) {
         triggerFatigueCheck();
         lastFatigueCheckTime.current = now;
@@ -446,7 +435,6 @@ export function useVehicleSimulation() {
     calculateDynamicRange();
   }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, aiState.acUsageImpact, calculateDynamicRange]);
   
-  // Trigger AI flows when their relevant inputs change
   useEffect(() => {
     triggerAcUsageImpact();
   }, [vehicleState.acOn, vehicleState.acTemp, vehicleState.outsideTemp, vehicleState.recentWhPerKm, triggerAcUsageImpact]);
@@ -493,9 +481,12 @@ export function useVehicleSimulation() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.repeat) return; // Prevent keydown from firing repeatedly
+      if (e.repeat) return;
       if (e.key in keys) { e.preventDefault(); keys[e.key] = true; }
-      if (e.key.toLowerCase() === 'c') toggleCharging();
+      if (e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        toggleCharging();
+      }
       if (e.key === '1') setDriveMode('Eco');
       if (e.key === '2') setDriveMode('City');
       if (e.key === '3') setDriveMode('Sports');
@@ -534,12 +525,3 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
-
-    
-
-    
-
-
-
-
-    
