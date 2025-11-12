@@ -104,7 +104,7 @@ export function useVehicleSimulation() {
       const now = Date.now();
   
       if (isNowCharging) {
-        if (currentState.lastChargeLog) return currentState;
+        // Start charging
         return {
           ...currentState,
           isCharging: true,
@@ -114,26 +114,27 @@ export function useVehicleSimulation() {
           }
         };
       } else {
-        if (!currentState.lastChargeLog) return { ...currentState, isCharging: false }; 
+        // Stop charging
+        const { lastChargeLog, chargingLogs, batterySOC } = currentState;
+        if (!lastChargeLog) return { ...currentState, isCharging: false }; 
         
-        const log = currentState.lastChargeLog;
-        const energyAdded = (currentState.batterySOC - log.startSOC) / 100 * currentState.packNominalCapacity_kWh;
+        const energyAdded = (batterySOC - lastChargeLog.startSOC) / 100 * currentState.packNominalCapacity_kWh;
         
         const newLog: ChargingLog = {
-          startTime: log.startTime,
+          startTime: lastChargeLog.startTime,
           endTime: now,
-          startSOC: log.startSOC,
-          endSOC: currentState.batterySOC,
+          startSOC: lastChargeLog.startSOC,
+          endSOC: batterySOC,
           energyAdded: Math.max(0, energyAdded),
         };
         
-        const newLogs = [...currentState.chargingLogs, newLog].slice(-10);
+        const newLogs = [...chargingLogs, newLog].slice(-10);
   
         return {
           ...currentState,
           isCharging: false,
           chargingLogs: newLogs,
-          lastChargeLog: undefined,
+          lastChargeLog: undefined, // Important: clear lastChargeLog
         };
       }
     });
@@ -198,7 +199,7 @@ export function useVehicleSimulation() {
     if (currentAiState.acUsageImpact && currentState.acOn) {
         const acImpactKm = Math.abs(currentAiState.acUsageImpact.rangeImpactKm);
         if (idealRange > 0) {
-            penaltyPercentage.ac = (acImpactKm * 1.5) / idealRange; 
+            penaltyPercentage.ac = acImpactKm / idealRange; 
         }
     }
 
@@ -251,7 +252,7 @@ export function useVehicleSimulation() {
     const { speedHistory, accelerationHistory, speed } = currentState;
     
     if (speed < 10) {
-      setAiState({ fatigueLevel: 0, fatigueWarning: null });
+      setAiState(prevState => ({ ...prevState, fatigueLevel: 0, fatigueWarning: prevState.fatigueWarning && prevState.fatigueLevel > 0.5 ? prevState.fatigueWarning : null }));
       return;
     }
     
@@ -379,14 +380,17 @@ export function useVehicleSimulation() {
     
     const newOdometer = prevState.odometer + distanceTraveledKm;
     
+    const currentWhPerKm = instantPower > 0 && newSpeedKmh > 0 ? (instantPower * 1000) / newSpeedKmh : 0;
+    
     let newEcoScore = prevState.ecoScore;
     if (newSpeedKmh > 1 && !prevState.isCharging) {
-        const currentScore = 100 - Math.abs(currentAcceleration) * 5 - (prevState.recentWhPerKm > 0 ? (prevState.recentWhPerKm / 10) : 0);
-        newEcoScore = prevState.ecoScore * 0.99 + currentScore * 0.01;
+        const accelPenalty = Math.abs(currentAcceleration) * 5;
+        const efficiencyPenalty = currentWhPerKm > 0 ? (currentWhPerKm / 20) : 0;
+        const currentScore = 100 - accelPenalty - efficiencyPenalty;
+        newEcoScore = prevState.ecoScore * 0.99 + Math.max(0, currentScore) * 0.01;
     }
 
-    const currentWhPerKm = instantPower > 0 && newSpeedKmh > 0 ? (instantPower * 1000) / newSpeedKmh : (distanceTraveledKm > 0 ? 0 : prevState.recentWhPerKm);
-    const newRecentWhPerKmWindow = [currentWhPerKm, ...prevState.recentWhPerKmWindow].slice(0, 50);
+    const newRecentWhPerKmWindow = [currentWhPerKm > 0 ? currentWhPerKm : 160, ...prevState.recentWhPerKmWindow].slice(0, 50);
     const newRecentWhPerKm = newRecentWhPerKmWindow.reduce((a, b) => a + b) / newRecentWhPerKmWindow.length;
 
 

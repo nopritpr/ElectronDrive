@@ -46,7 +46,7 @@ const GreenScoreCard = ({ score }: { score: number }) => {
           Green Score
         </CardTitle>
         <p className="text-xs text-muted-foreground -mt-2">
-          A linear regression model estimates CO2 savings based on distance driven versus a standard gasoline car&apos;s emissions.
+          A linear regression model estimates CO2 savings based on distance driven versus a standard gasoline car's emissions.
         </p>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
