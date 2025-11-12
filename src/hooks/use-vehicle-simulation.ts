@@ -90,48 +90,55 @@ export function useVehicleSimulation() {
   };
 
   const toggleCharging = () => {
-    const currentState = vehicleStateRef.current;
-    if (currentState.speed > 0 && !currentState.isCharging) {
+    setVehicleState(currentState => {
+      if (currentState.speed > 0 && !currentState.isCharging) {
         toast({
           title: "Cannot start charging",
           description: "Vehicle must be stationary to start charging.",
           variant: "destructive",
         });
-        return;
-    }
-
-    const isCharging = !currentState.isCharging;
-    const now = Date.now();
-    let newLogs = [...currentState.chargingLogs];
-
-    if (isCharging) {
-      // Prevent starting a new charge log if one is already active
-      if (currentState.lastChargeLog) return;
-      
-      setVehicleState({
-        isCharging,
-        lastChargeLog: {
-          startTime: now,
-          startSOC: currentState.batterySOC,
-        }
-      });
-    } else if (currentState.lastChargeLog) {
-      const log = currentState.lastChargeLog;
-      const energyAdded = (currentState.batterySOC - log.startSOC) / 100 * currentState.packNominalCapacity_kWh;
-      const newLog: ChargingLog = {
-        startTime: log.startTime,
-        endTime: now,
-        startSOC: log.startSOC,
-        endSOC: currentState.batterySOC,
-        energyAdded: Math.max(0, energyAdded),
-      };
-      newLogs.push(newLog);
-      setVehicleState({
-        isCharging,
-        chargingLogs: newLogs.slice(-10),
-        lastChargeLog: undefined,
-      });
-    }
+        return currentState; 
+      }
+  
+      const isNowCharging = !currentState.isCharging;
+      const now = Date.now();
+  
+      if (isNowCharging) {
+        // Prevent starting a new log if one seems active
+        if (currentState.lastChargeLog) return currentState;
+        return {
+          ...currentState,
+          isCharging: true,
+          lastChargeLog: {
+            startTime: now,
+            startSOC: currentState.batterySOC,
+          }
+        };
+      } else {
+        // Stop charging and log the session
+        if (!currentState.lastChargeLog) return { ...currentState, isCharging: false }; // Should not happen
+        
+        const log = currentState.lastChargeLog;
+        const energyAdded = (currentState.batterySOC - log.startSOC) / 100 * currentState.packNominalCapacity_kWh;
+        
+        const newLog: ChargingLog = {
+          startTime: log.startTime,
+          endTime: now,
+          startSOC: log.startSOC,
+          endSOC: currentState.batterySOC,
+          energyAdded: Math.max(0, energyAdded),
+        };
+        
+        const newLogs = [...currentState.chargingLogs, newLog].slice(-10); // Keep last 10 logs
+  
+        return {
+          ...currentState,
+          isCharging: false,
+          chargingLogs: newLogs,
+          lastChargeLog: undefined, // Clear the active charge log
+        };
+      }
+    });
   };
   const resetTrip = () => {
     const currentState = vehicleStateRef.current;
@@ -190,9 +197,11 @@ export function useVehicleSimulation() {
     let penaltyPercentage = { ac: 0, load: 0, temp: 0, driveMode: 0 };
     
     // AC Penalty - now sourced from the AI model if available
-    const acImpactKm = currentAiState.acUsageImpact ? Math.abs(currentAiState.acUsageImpact.rangeImpactKm) : (currentState.acOn ? 5 : 0);
+    const acImpactKm = currentAiState.acUsageImpact && currentState.acOn ? Math.abs(currentAiState.acUsageImpact.rangeImpactKm) : 0;
     if (idealRange > 0 && currentState.acOn) {
-      penaltyPercentage.ac = acImpactKm / idealRange;
+      // This is a rough estimation of the penalty over the *entire remaining range* not just per hour
+      // For a more accurate instantaneous breakdown, we use the hourly rate as a proxy for current severity
+      penaltyPercentage.ac = acImpactKm / idealRange; 
     }
 
     // Load Penalty
@@ -215,13 +224,12 @@ export function useVehicleSimulation() {
     const totalPenaltyPercentage = penaltyPercentage.ac + penaltyPercentage.load + penaltyPercentage.temp + penaltyPercentage.driveMode;
 
     const predictedRange = idealRange * (1 - totalPenaltyPercentage);
-    const totalRangeLoss = idealRange - predictedRange;
-
+    
     const finalPenalties = {
-      ac: acImpactKm,
-      load: totalRangeLoss > 0 && totalPenaltyPercentage > 0 ? totalRangeLoss * (penaltyPercentage.load / totalPenaltyPercentage) : 0,
-      temp: totalRangeLoss > 0 && totalPenaltyPercentage > 0 ? totalRangeLoss * (penaltyPercentage.temp / totalPenaltyPercentage) : 0,
-      driveMode: totalRangeLoss > 0 && totalPenaltyPercentage > 0 ? totalRangeLoss * (penaltyPercentage.driveMode / totalPenaltyPercentage) : 0,
+      ac: idealRange * penaltyPercentage.ac,
+      load: idealRange * penaltyPercentage.load,
+      temp: idealRange * penaltyPercentage.temp,
+      driveMode: idealRange * penaltyPercentage.driveMode,
     };
     
     setVehicleState({ range: predictedRange, predictedDynamicRange: predictedRange, rangePenalties: finalPenalties });
@@ -432,7 +440,7 @@ export function useVehicleSimulation() {
     }
 
     requestRef.current = requestAnimationFrame(updateVehicleState);
-  }, [triggerAcUsageImpact, triggerFatigueCheck, triggerIdlePrediction]);
+  }, [triggerAcUsageImpact, triggerFatigueCheck, triggerIdlePrediction, toast]);
 
   useEffect(() => {
     calculateDynamicRange();
@@ -532,3 +540,6 @@ export function useVehicleSimulation() {
     
 
 
+
+
+    
