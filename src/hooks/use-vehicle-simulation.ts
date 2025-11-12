@@ -432,9 +432,6 @@ export function useVehicleSimulation() {
         triggerFatigueCheck(newSpeedKmh, currentAcceleration);
         lastFatigueCheckTime.current = now;
     }
-    triggerAcUsageImpact();
-    triggerIdlePrediction();
-
 
     requestRef.current = requestAnimationFrame(updateVehicleState);
   }, [triggerAcUsageImpact, triggerFatigueCheck, triggerIdlePrediction]);
@@ -443,6 +440,15 @@ export function useVehicleSimulation() {
     calculateDynamicRange();
   }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, calculateDynamicRange]);
   
+  // Trigger AI flows when their relevant inputs change
+  useEffect(() => {
+    triggerAcUsageImpact();
+  }, [vehicleState.acOn, vehicleState.acTemp, vehicleState.outsideTemp, vehicleState.recentWhPerKm, triggerAcUsageImpact]);
+
+  useEffect(() => {
+    triggerIdlePrediction();
+  }, [vehicleState.acOn, vehicleState.acTemp, vehicleState.outsideTemp, vehicleState.speed, vehicleState.isCharging, triggerIdlePrediction]);
+
 
   const isWeatherImpactRunning = useRef(false);
 
