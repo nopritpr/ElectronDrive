@@ -234,7 +234,7 @@ export default function DashboardTab({
               alt="EV Car"
               width={200}
               height={200}
-              className={cn('relative z-10 w-[128px] h-auto transition-transform duration-500 ease-out', state.speed > 1 && 'animate-car-drive')}
+              className={cn('relative z-10 w-[128px] h-auto transition-transform duration-500 ease-out mix-blend-multiply dark:mix-blend-normal', state.speed > 1 && 'animate-car-drive')}
               style={{
                 filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.4))',
               }}
