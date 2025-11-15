@@ -53,38 +53,38 @@ const driverFatigueMonitorFlow = ai.defineFlow(
     const speedVariance = speedHistory.reduce((sum, speed) => sum + Math.pow(speed - meanSpeed, 2), 0) / speedHistory.length;
 
     // --- Step 2: Calculate Sharp Brake Frequency ---
-    // A sharp brake is a significant negative acceleration.
     const sharpBrakes = accelerationHistory.filter(a => a < -3.0).length;
-    const timeWindowInSeconds = accelerationHistory.length; // Assume 1 data point per second
-    const brakeFrequency = sharpBrakes / timeWindowInSeconds; // Brakes per second
-
-    // --- Step 3: Calculate Acceleration Inconsistency ---
-    // This measures how "jerky" the driving is by summing the absolute change in acceleration.
+    
+    // --- Step 3: Calculate Acceleration Inconsistency (Jerky driving) ---
     let accelChanges = 0;
     for (let i = 1; i < accelerationHistory.length; i++) {
         accelChanges += Math.abs(accelerationHistory[i] - accelerationHistory[i-1]);
     }
     const accelInconsistency = accelerationHistory.length > 1 ? accelChanges / (accelerationHistory.length - 1) : 0;
     
-    // --- Step 4: Fatigue Confidence Calculation (Recalibrated) ---
-    // These weights and intercept are tuned to be sensitive to the input metrics.
-    const B0 = -2.0;  // Intercept calibrated for typical driving being low confidence.
-    const w1 = 0.3;   // Weight for speed_variance
-    const w2 = 30.0;  // High weight for brake_frequency
-    const w3 = 1.5;   // Weight for accel_inconsistency
+    // --- Step 4: Fatigue Score Calculation (Recalibrated for High Sensitivity) ---
+    // These weights and intercept are tuned to be highly sensitive to deviations from normal driving.
+    const B0 = -4.0;  // Intercept calibrated to keep score low during normal driving.
+    const w_speed_var = 0.5;   // High sensitivity to speed variance
+    const w_sharp_brake = 1.0;  // Very high penalty for each sharp brake event
+    const w_accel_incon = 2.0;   // High sensitivity to jerky movements
     
-    // The Z-score is a linear combination of the weighted metrics.
-    const z = B0 + (w1 * speedVariance) + (w2 * brakeFrequency) + (w3 * accelInconsistency);
+    const anomalyScore = B0 + (w_speed_var * speedVariance) + (w_sharp_brake * sharpBrakes) + (w_accel_incon * accelInconsistency);
     
-    // Sigmoid function to map Z-score to a probability (0-1)
-    const fatigueConfidence = 1 / (1 + Math.exp(-z));
+    // Sigmoid function to map the raw anomaly score to a probability-like value (0-1)
+    const fatigueConfidence = 1 / (1 + Math.exp(-anomalyScore));
     
-    // Step 5: Generate human-friendly reasoning text based on confidence.
+    // Step 5: Generate human-friendly reasoning text.
     let reasoning: string;
-    if (fatigueConfidence > 0.75) {
-        reasoning = `High variance in speed and inconsistent acceleration patterns detected, suggesting fatigue. Speed variance: ${speedVariance.toFixed(2)}, Brake Freq: ${brakeFrequency.toFixed(2)}`;
-    } else if (fatigueConfidence > 0.4) {
-        reasoning = `Slightly erratic speed control was detected, which can be an early sign of fatigue. Speed variance: ${speedVariance.toFixed(2)}`;
+    let highConfidenceReasons = [];
+    if (speedVariance > 15) highConfidenceReasons.push("highly variable speed");
+    if (sharpBrakes > 1) highConfidenceReasons.push("frequent sharp braking");
+    if (accelInconsistency > 1.5) highConfidenceReasons.push("jerky acceleration");
+
+    if (fatigueConfidence > 0.8) {
+        reasoning = `High fatigue risk detected due to ${highConfidenceReasons.join(', ')}. Recommend taking a break.`;
+    } else if (fatigueConfidence > 0.5) {
+        reasoning = `Signs of fatigue detected: ${highConfidenceReasons.join(', ')}.`;
     } else {
         reasoning = "Driving patterns appear normal and alert.";
     }

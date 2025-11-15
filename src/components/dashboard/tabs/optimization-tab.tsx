@@ -1,6 +1,6 @@
 
 'use client';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import EcoScoreGauge from "../charts/eco-score-gauge";
 import type { VehicleState, AiState } from "@/lib/types";
@@ -45,9 +45,9 @@ const GreenScoreCard = ({ score }: { score: number }) => {
           <Leaf className="w-4 h-4 text-green-500" />
           Green Score
         </CardTitle>
-        <p className="text-xs text-muted-foreground -mt-2">
+        <CardDescription className="text-xs -mt-2">
           A linear regression model estimates CO2 savings based on distance driven versus a standard gasoline car's emissions.
-        </p>
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
         <p className="text-3xl lg:text-4xl font-bold text-green-400 font-headline">
@@ -77,7 +77,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick }: Optimiz
             <Card className="flex flex-col items-center justify-center">
                 <CardHeader className="items-center pb-2 text-center">
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><BarChart className="w-4 h-4"/>Eco-Driving Score</CardTitle>
-                    <p className="text-xs text-muted-foreground -mt-2 px-2">A scoring model rates driving style based on smooth acceleration and efficient energy use.</p>
+                    <CardDescription className="text-xs -mt-2 px-2">A scoring model rates driving style based on smooth acceleration and efficient energy use.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow w-48 h-48 flex flex-col items-center justify-center">
                     <div className="w-full h-full">
@@ -107,7 +107,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick }: Optimiz
             <Card className="col-span-3 md:col-span-2 row-start-2 md:row-start-auto flex flex-col">
                 <CardHeader>
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><BrainCircuit className="w-4 h-4"/>Predictive Idle Drain</CardTitle>
-                    <p className="text-xs text-muted-foreground -mt-2">An energy consumption model forecasts battery loss over 8 hours based on current settings.</p>
+                    <CardDescription className="text-xs -mt-2">An energy consumption model forecasts battery loss over 8 hours based on current settings.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0 flex-grow min-h-0">
                     <IdleDrainChart data={state.idleDrainPrediction} currentSOC={state.batterySOC} />
@@ -117,7 +117,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick }: Optimiz
             <Card className="p-4 flex flex-col">
                  <CardHeader className="p-0 pb-2">
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><Wind className="w-4 h-4"/>A/C Usage Impact</CardTitle>
-                    <p className="text-xs text-muted-foreground -mt-2">A regression model predicts range change based on A/C settings and temperature.</p>
+                    <CardDescription className="text-xs -mt-2">A regression model predicts range change based on A/C settings and temperature.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col p-0 pt-2 min-h-0">
                      <div className="flex-grow">

@@ -90,52 +90,54 @@ export function useVehicleSimulation() {
   };
 
   const toggleCharging = () => {
-    const currentState = vehicleStateRef.current;
-    if (currentState.speed > 0 && !currentState.isCharging) {
+    setVehicleState(prevState => {
+      const now = Date.now();
+      const isCurrentlyCharging = prevState.isCharging;
+
+      if (prevState.speed > 0 && !isCurrentlyCharging) {
         toast({
             title: "Cannot start charging",
             description: "Vehicle must be stationary to start charging.",
             variant: "destructive",
         });
-        return;
-    }
+        return prevState; 
+      }
 
-    const isNowCharging = !currentState.isCharging;
-    const now = Date.now();
+      const isNowCharging = !isCurrentlyCharging;
 
-    if (isNowCharging) {
-        setVehicleState({
-            isCharging: true,
-            lastChargeLog: {
-                startTime: now,
-                startSOC: currentState.batterySOC,
-            },
-        });
-    } else {
-        const { lastChargeLog, chargingLogs, batterySOC } = currentState;
+      if (isNowCharging) {
+        return {
+          ...prevState,
+          isCharging: true,
+          lastChargeLog: {
+            startTime: now,
+            startSOC: prevState.batterySOC,
+          },
+        };
+      } else {
+        const { lastChargeLog, chargingLogs, batterySOC } = prevState;
         if (!lastChargeLog) {
-             setVehicleState({ isCharging: false });
-             return;
+           return { ...prevState, isCharging: false };
         }
 
-        const energyAdded = (batterySOC - lastChargeLog.startSOC) / 100 * currentState.packNominalCapacity_kWh;
-
+        const energyAdded = (batterySOC - lastChargeLog.startSOC) / 100 * prevState.packNominalCapacity_kWh;
         const newLog: ChargingLog = {
-            startTime: lastChargeLog.startTime,
-            endTime: now,
-            startSOC: lastChargeLog.startSOC,
-            endSOC: batterySOC,
-            energyAdded: Math.max(0, energyAdded),
+          startTime: lastChargeLog.startTime,
+          endTime: now,
+          startSOC: lastChargeLog.startSOC,
+          endSOC: batterySOC,
+          energyAdded: Math.max(0, energyAdded),
         };
-
         const newLogs = [...chargingLogs, newLog].slice(-10);
 
-        setVehicleState({
-            isCharging: false,
-            chargingLogs: newLogs,
-            lastChargeLog: undefined,
-        });
-    }
+        return {
+          ...prevState,
+          isCharging: false,
+          chargingLogs: newLogs,
+          lastChargeLog: undefined,
+        };
+      }
+    });
   };
 
   const resetTrip = () => {
@@ -385,17 +387,13 @@ export function useVehicleSimulation() {
     
     let newEcoScore = prevState.ecoScore;
     if (newSpeedKmh > 1 && !prevState.isCharging) {
-      // Penalty for harsh acceleration
-      const accelPenalty = Math.max(0, currentAcceleration - 1.5) * 1.5;
+      const accelPenalty = Math.max(0, currentAcceleration - 1.5) * 2.0;
       
-      // Penalty for inefficient energy use, relative to a baseline
       const consumptionRatio = currentWhPerKm / EV_CONSTANTS.baseConsumption;
-      const efficiencyPenalty = Math.max(0, (consumptionRatio - 1.2)) * 10;
+      const efficiencyPenalty = Math.max(0, (consumptionRatio - 1.0)) * 25;
 
-      // Calculate score for this frame (0-100)
       const currentScore = 100 - accelPenalty - efficiencyPenalty;
       
-      // Update the moving average of the ecoScore
       newEcoScore = prevState.ecoScore * 0.99 + Math.max(0, currentScore) * 0.01;
     }
 
