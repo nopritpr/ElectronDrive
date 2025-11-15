@@ -272,7 +272,11 @@ export function useVehicleSimulation() {
 
   const triggerFatigueCheck = useCallback(async () => {
     const currentState = vehicleStateRef.current;
-    if (currentState.speed < 1) return;
+    if (currentState.speed < 1) {
+        // If speed is very low, don't check, but also don't clear the warning immediately.
+        // Let the warning persist until the next valid check.
+        return;
+    }
     if (currentState.speedHistory.length < 10) return;
 
     try {
@@ -362,26 +366,35 @@ export function useVehicleSimulation() {
     const totalTractiveForce = fAero + fRoll + fInertia;
     let instantPower = (totalTractiveForce * speedMs) / 1000;
 
-    if (instantPower < 0) {
-      instantPower *= EV_CONSTANTS.regenEfficiency;
-    } else {
+    // Only apply drivetrain efficiency loss when power is positive (consuming)
+    if (instantPower > 0) {
       instantPower /= EV_CONSTANTS.drivetrainEfficiency;
+    } else {
+      // When power is negative (regenerating), apply regen efficiency
+      instantPower *= EV_CONSTANTS.regenEfficiency;
     }
-
+    
     if (prevState.acOn) {
         instantPower += EV_CONSTANTS.acPower_kW * (Math.min(1, Math.abs(prevState.acTemp - prevState.outsideTemp) / 10));
     }
-
-    const energyUsedKwh = instantPower * (timeDelta / 3600);
     
-    const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
+    // Only drain the battery if the net power is positive
+    if (instantPower > 0 && !prevState.isCharging) {
+      const energyUsedKwh = instantPower * (timeDelta / 3600);
+      const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
+      newSOC -= socDelta;
+    } else if (instantPower < 0 && !prevState.isCharging) {
+      // Regenerative braking: add a small amount of charge back
+      const energyGainedKwh = Math.abs(instantPower) * (timeDelta / 3600);
+      const socGain = (energyGainedKwh / prevState.packNominalCapacity_kWh) * 100;
+      newSOC += socGain;
+    }
     
     if (prevState.isCharging) {
       const chargePerSecond = 1 / 5;
       newSOC += chargePerSecond * timeDelta;
-    } else if (!isActuallyIdle) {
-      newSOC -= socDelta;
     }
+
     newSOC = Math.max(0, Math.min(100, newSOC));
     
     const newOdometer = prevState.odometer + distanceTraveledKm;
@@ -540,3 +553,5 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    
