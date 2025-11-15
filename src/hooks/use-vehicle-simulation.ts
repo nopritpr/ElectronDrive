@@ -384,10 +384,14 @@ export function useVehicleSimulation() {
     
     let newEcoScore = prevState.ecoScore;
     if (newSpeedKmh > 1 && !prevState.isCharging) {
-        const accelPenalty = Math.abs(currentAcceleration) * 5;
-        const efficiencyPenalty = currentWhPerKm > 0 ? (currentWhPerKm / 20) : 0;
-        const currentScore = 100 - accelPenalty - efficiencyPenalty;
-        newEcoScore = prevState.ecoScore * 0.99 + Math.max(0, currentScore) * 0.01;
+      const accelPenalty = Math.pow(Math.abs(currentAcceleration), 1.5) * 2;
+      const consumptionDeviation = currentWhPerKm > EV_CONSTANTS.baseConsumption
+        ? (currentWhPerKm - EV_CONSTANTS.baseConsumption) / EV_CONSTANTS.baseConsumption
+        : 0;
+      const efficiencyPenalty = consumptionDeviation * 30;
+      
+      const currentScore = 100 - accelPenalty - efficiencyPenalty;
+      newEcoScore = prevState.ecoScore * 0.99 + Math.max(0, currentScore) * 0.01;
     }
 
     const newRecentWhPerKmWindow = [currentWhPerKm > 0 ? currentWhPerKm : 160, ...prevState.recentWhPerKmWindow].slice(0, 50);
