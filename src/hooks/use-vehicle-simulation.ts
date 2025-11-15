@@ -250,12 +250,12 @@ export function useVehicleSimulation() {
     }
   }, 500), []);
 
-  const triggerFatigueCheck = useCallback(debounce(async () => {
+  const triggerFatigueCheck = debounce(async () => {
     const currentState = vehicleStateRef.current;
     const { speedHistory, accelerationHistory, speed } = currentState;
-    
+
     if (speed < 10) {
-      // Don't check for fatigue at low speed, but preserve the current fatigue state.
+      // Preserve the fatigue state when at low speed, don't reset it
       return;
     }
     
@@ -277,7 +277,7 @@ export function useVehicleSimulation() {
     } catch (error) {
       console.error("Error calling monitorDriverFatigue:", error);
     }
-  }, 2000), []);
+  }, 2000);
 
 
   const triggerIdlePrediction = useCallback(debounce(async () => {
@@ -439,7 +439,7 @@ export function useVehicleSimulation() {
     }
 
     requestRef.current = requestAnimationFrame(updateVehicleState);
-  }, [toast, triggerFatigueCheck]);
+  }, [toast]);
 
   useEffect(() => {
     calculateDynamicRange();
