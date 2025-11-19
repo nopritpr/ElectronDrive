@@ -66,43 +66,52 @@ export function useVehicleSimulation() {
 
   const toggleCharging = useCallback(() => {
     setVehicleState(prevState => {
-      const isNowCharging = !prevState.isCharging;
-      const now = Date.now();
-  
-      if (isNowCharging) {
-        return {
-          ...prevState,
-          isCharging: true,
-          lastChargeLog: {
-            startTime: now,
-            startSOC: prevState.batterySOC,
-          },
-        };
-      } else {
-        const { lastChargeLog, chargingLogs, batterySOC } = prevState;
-        if (!lastChargeLog) {
-           return { ...prevState, isCharging: false };
+        if (prevState.speed > 0 && !prevState.isCharging) {
+          toast({
+            title: "Cannot start charging",
+            description: "Vehicle must be stationary to start charging.",
+            variant: "destructive",
+          });
+          return prevState;
         }
-  
-        const energyAdded = (batterySOC - lastChargeLog.startSOC) / 100 * prevState.packNominalCapacity_kWh;
-        const newLog: ChargingLog = {
-          startTime: lastChargeLog.startTime,
-          endTime: now,
-          startSOC: lastChargeLog.startSOC,
-          endSOC: batterySOC,
-          energyAdded: Math.max(0, energyAdded),
-        };
-        const newLogs = [...chargingLogs, newLog].slice(-10);
-  
-        return {
-          ...prevState,
-          isCharging: false,
-          chargingLogs: newLogs,
-          lastChargeLog: undefined,
-        };
-      }
+
+        const isNowCharging = !prevState.isCharging;
+        const now = Date.now();
+    
+        if (isNowCharging) {
+            return {
+                ...prevState,
+                isCharging: true,
+                lastChargeLog: {
+                    startTime: now,
+                    startSOC: prevState.batterySOC,
+                },
+            };
+        } else {
+            const { lastChargeLog, chargingLogs, batterySOC } = prevState;
+            if (!lastChargeLog) {
+                return { ...prevState, isCharging: false };
+            }
+    
+            const energyAdded = (batterySOC - lastChargeLog.startSOC) / 100 * prevState.packNominalCapacity_kWh;
+            const newLog: ChargingLog = {
+                startTime: lastChargeLog.startTime,
+                endTime: now,
+                startSOC: lastChargeLog.startSOC,
+                endSOC: batterySOC,
+                energyAdded: Math.max(0, energyAdded),
+            };
+            const newLogs = [...chargingLogs, newLog].slice(-10);
+    
+            return {
+                ...prevState,
+                isCharging: false,
+                chargingLogs: newLogs,
+                lastChargeLog: undefined,
+            };
+        }
     });
-  }, []);
+  }, [toast]);
 
   const resetTrip = () => {
     setVehicleState(prevState => {
@@ -266,63 +275,6 @@ export function useVehicleSimulation() {
       });
   }, []);
   
-
-  useEffect(() => {
-    const aiInterval = setInterval(() => {
-      triggerAcUsageImpact();
-      triggerIdlePrediction();
-    }, 5000);
-    
-    const fatigueInterval = setInterval(() => {
-        triggerFatigueCheck();
-    }, 2000);
-
-    return () => {
-        clearInterval(aiInterval);
-        clearInterval(fatigueInterval);
-    };
-  }, [triggerAcUsageImpact, triggerIdlePrediction, triggerFatigueCheck]);
-
-  useEffect(() => {
-    calculateDynamicRange(vehicleState, aiState);
-  }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, aiState.acUsageImpact, calculateDynamicRange, vehicleState, aiState]);
-
-  const isWeatherImpactRunning = useRef(false);
-
-  useEffect(() => {
-    const forecast = vehicleState.weatherForecast;
-
-    async function triggerWeatherImpactForecast(forecastData: FiveDayForecast | null) {
-      if (isWeatherImpactRunning.current || !forecastData) {
-        return;
-      }
-      isWeatherImpactRunning.current = true;
-      try {
-        const state = vehicleStateRef.current;
-        const input: GetWeatherImpactInput = {
-          currentSOC: state.batterySOC,
-          initialRange: state.initialRange,
-          forecast: forecastData.list.map(item => ({
-            temp: item.main.temp,
-            precipitation: item.weather[0].main,
-            windSpeed: item.wind.speed,
-          })).slice(0, 5)
-        };
-        const result = await getWeatherImpact(input);
-        setAiState(prevState => ({ ...prevState, weatherImpact: result }));
-      } catch (error) {
-        console.error("Error calling getWeatherImpact:", error);
-        setAiState(prevState => ({ ...prevState, weatherImpact: null }));
-      } finally {
-          isWeatherImpactRunning.current = false;
-      }
-    }
-    
-    if (forecast) {
-      triggerWeatherImpactForecast(forecast);
-    }
-  }, [vehicleState.weatherForecast, vehicleState.batterySOC, vehicleState.initialRange]);
-  
   const updateVehicleState = useCallback((prevState: VehicleState): VehicleState => {
     const now = Date.now();
     const timeDelta = (now - prevState.lastUpdate) / 1000;
@@ -397,11 +349,9 @@ export function useVehicleSimulation() {
         instantPower += EV_CONSTANTS.acPower_kW * (Math.min(1, Math.abs(prevState.acTemp - prevState.outsideTemp) / 10));
     }
     
-    if (instantPower > 0) {
-        const energyUsedKwh = instantPower * (timeDelta / 3600);
-        const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
-        newSOC -= socDelta;
-    }
+    const energyUsedKwh = instantPower * (timeDelta / 3600);
+    const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
+    newSOC -= socDelta;
 
 
     newSOC = Math.max(0, Math.min(100, newSOC));
@@ -458,7 +408,19 @@ export function useVehicleSimulation() {
     return {...prevState, ...newVehicleState};
   }, []);
 
+  // Animation loop
+  useEffect(() => {
+    let requestRef: number;
+    const tick = () => {
+      setVehicleState(updateVehicleState);
+      requestRef = requestAnimationFrame(tick);
+    };
+    requestRef = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(requestRef);
+  }, [updateVehicleState]);
 
+
+  // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -487,35 +449,28 @@ export function useVehicleSimulation() {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
-    const requestRef = { current: 0 };
-    const tick = () => {
-        setVehicleState(updateVehicleState);
-        requestRef.current = requestAnimationFrame(tick);
-    }
-    requestRef.current = requestAnimationFrame(tick);
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [toggleCharging, updateVehicleState]);
+  }, [toggleCharging]);
 
-  useEffect(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(position => {
-        setVehicleState(prevState => ({
-            ...prevState,
-            weather: { ...prevState.weather, coord: { lat: position.coords.latitude, lon: position.coords.longitude } } as any,
-        }));
-      });
-    }
-  }, []);
 
+  // AI and external data fetching timers
   useEffect(() => {
+    const aiInterval = setInterval(() => {
+      triggerAcUsageImpact();
+      triggerIdlePrediction();
+    }, 5000);
+    
+    const fatigueInterval = setInterval(() => {
+        triggerFatigueCheck();
+    }, 2000);
+
     const fetchWeatherData = async () => {
-      const lat = vehicleState.weather?.coord?.lat;
-      const lon = vehicleState.weather?.coord?.lon;
+      const state = vehicleStateRef.current;
+      const lat = state.weather?.coord?.lat;
+      const lon = state.weather?.coord?.lon;
 
       if (!lat || !lon) return;
       try {
@@ -544,10 +499,68 @@ export function useVehicleSimulation() {
     };
 
     fetchWeatherData();
-    const interval = setInterval(fetchWeatherData, 300000);
-    return () => clearInterval(interval);
-  }, [vehicleState.weather?.coord?.lat, vehicleState.weather?.coord?.lon]);
+    const weatherInterval = setInterval(fetchWeatherData, 300000);
 
+    return () => {
+        clearInterval(aiInterval);
+        clearInterval(fatigueInterval);
+        clearInterval(weatherInterval);
+    };
+  }, [triggerAcUsageImpact, triggerIdlePrediction, triggerFatigueCheck]);
+
+  // Dynamic Range Calculation
+  useEffect(() => {
+    calculateDynamicRange(vehicleState, aiState);
+  }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, aiState.acUsageImpact, calculateDynamicRange, vehicleState, aiState]);
+
+  // Initial Geolocation
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(position => {
+        setVehicleState(prevState => ({
+            ...prevState,
+            weather: { ...prevState.weather, coord: { lat: position.coords.latitude, lon: position.coords.longitude } } as any,
+        }));
+      });
+    }
+  }, []);
+
+  const isWeatherImpactRunning = useRef(false);
+
+  useEffect(() => {
+    const forecast = vehicleState.weatherForecast;
+
+    async function triggerWeatherImpactForecast(forecastData: FiveDayForecast | null) {
+      if (isWeatherImpactRunning.current || !forecastData) {
+        return;
+      }
+      isWeatherImpactRunning.current = true;
+      try {
+        const state = vehicleStateRef.current;
+        const input: GetWeatherImpactInput = {
+          currentSOC: state.batterySOC,
+          initialRange: state.initialRange,
+          forecast: forecastData.list.map(item => ({
+            temp: item.main.temp,
+            precipitation: item.weather[0].main,
+            windSpeed: item.wind.speed,
+          })).slice(0, 5)
+        };
+        const result = await getWeatherImpact(input);
+        setAiState(prevState => ({ ...prevState, weatherImpact: result }));
+      } catch (error) {
+        console.error("Error calling getWeatherImpact:", error);
+        setAiState(prevState => ({ ...prevState, weatherImpact: null }));
+      } finally {
+          isWeatherImpactRunning.current = false;
+      }
+    }
+    
+    if (forecast) {
+      triggerWeatherImpactForecast(forecast);
+    }
+  }, [vehicleState.weatherForecast, vehicleState.batterySOC, vehicleState.initialRange]);
+  
 
   return {
     state: { ...vehicleState, ...aiState },
@@ -565,3 +578,5 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    
