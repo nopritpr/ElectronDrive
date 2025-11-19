@@ -76,9 +76,7 @@ export function useVehicleSimulation() {
 
   const toggleCharging = useCallback(() => {
     setVehicleState(prevState => {
-      const isCurrentlyCharging = prevState.isCharging;
-  
-      if (prevState.speed > 0 && !isCurrentlyCharging) {
+      if (prevState.speed > 0 && !prevState.isCharging) {
         toast({
           title: "Cannot start charging",
           description: "Vehicle must be stationary to start charging.",
@@ -86,8 +84,8 @@ export function useVehicleSimulation() {
         });
         return prevState;
       }
-  
-      const isNowCharging = !isCurrentlyCharging;
+      
+      const isNowCharging = !prevState.isCharging;
       const now = Date.now();
   
       if (isNowCharging) {
@@ -286,16 +284,19 @@ export function useVehicleSimulation() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-        const currentState = vehicleState;
+      // Pass the current state directly to the functions
+      setVehicleState(currentState => {
         triggerAcUsageImpact(currentState);
         triggerIdlePrediction(currentState);
+        return currentState;
+      })
     }, 5000);
     return () => clearInterval(interval);
-  }, [triggerAcUsageImpact, triggerIdlePrediction, vehicleState]);
+  }, [triggerAcUsageImpact, triggerIdlePrediction]);
 
   useEffect(() => {
     calculateDynamicRange(vehicleState, aiState);
-  }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, aiState.acUsageImpact, calculateDynamicRange, vehicleState, aiState]);
+  }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, aiState.acUsageImpact, calculateDynamicRange]);
 
   const isWeatherImpactRunning = useRef(false);
 
@@ -411,6 +412,7 @@ export function useVehicleSimulation() {
       const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
       newSOC -= socDelta;
     }
+
 
     newSOC = Math.max(0, Math.min(100, newSOC));
     
@@ -530,3 +532,5 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    
