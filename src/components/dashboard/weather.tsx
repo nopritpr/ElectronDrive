@@ -66,21 +66,15 @@ export default function Weather({ weather, forecast }: { weather: WeatherData | 
         ) : <div className="flex-grow flex items-center justify-center"><p className="text-xs text-muted-foreground">Loading current weather...</p></div>}
         
         <div className="flex-grow space-y-1 overflow-y-auto pt-2">
-             {dailyForecasts.length > 0 ? (
-                dailyForecasts.map((day, index) => (
-                    <div key={index} className="flex items-center justify-between text-xs">
-                        <span className="font-semibold w-10">{format(parseISO(day.dt_txt), 'eee')}</span>
-                        <div className="w-6 h-6 flex items-center justify-center">
-                            {getWeatherIcon(day.weather[0].icon, 24)}
-                        </div>
-                        <span className="font-bold font-mono">{Math.round(day.main.temp)}°C</span>
+             {dailyForecasts.map((day, index) => (
+                <div key={index} className="flex items-center justify-between text-xs">
+                    <span className="font-semibold w-10">{format(parseISO(day.dt_txt), 'eee')}</span>
+                    <div className="w-6 h-6 flex items-center justify-center">
+                        {getWeatherIcon(day.weather[0].icon, 24)}
                     </div>
-                ))
-             ) : (
-                <div className="flex h-full items-center justify-center">
-                    <p className="text-xs text-muted-foreground text-center">Loading forecast...</p>
+                    <span className="font-bold font-mono">{Math.round(day.main.temp)}°C</span>
                 </div>
-             )}
+            ))}
         </div>
       </CardContent>
     </Card>
