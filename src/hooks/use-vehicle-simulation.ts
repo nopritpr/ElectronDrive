@@ -338,10 +338,9 @@ export function useVehicleSimulation() {
         const chargePerSecond = 1 / 5; // 1% SOC every 5 seconds
         newSOC += chargePerSecond * timeDelta;
         newSOC = Math.min(100, newSOC);
-
         return {
             ...prevState,
-            isCharging: true, // Persist charging state
+            isCharging: true,
             batterySOC: newSOC,
             lastUpdate: now,
         };
@@ -530,5 +529,7 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    
 
     
