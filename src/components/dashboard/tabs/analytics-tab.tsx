@@ -1,6 +1,6 @@
 
 'use client';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import ChargingHabitChart from "../charts/charging-habit-chart";
 import type { VehicleState } from "@/lib/types";
 import { BatteryCharging, Zap, TrendingUp, AlertTriangle } from "lucide-react";
@@ -75,7 +75,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
             <Card className="flex flex-col">
                 <CardHeader>
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><Zap className="w-4 h-4"/>Charging Habit</CardTitle>
-                    <p className="text-xs text-muted-foreground -mt-2">A K-Means clustering model groups charging sessions by time to identify user habits.</p>
+                    <CardDescription className="text-xs -mt-2">A K-Means clustering model groups charging sessions by time to identify user habits.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <ChargingHabitChart data={analyzeChargingPatterns()} />
@@ -86,7 +86,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-sm font-headline flex items-center gap-2"><span className="font-bold text-base">₹</span>Cost Savings</CardTitle>
-                        <p className="text-xs text-muted-foreground -mt-2">A simple cost model compares the running cost of an EV against a comparable gasoline car.</p>
+                        <CardDescription className="text-xs -mt-2">Compares EV running cost (~₹1.14/km) vs. a comparable gasoline car (~₹6.67/km).</CardDescription>
                     </CardHeader>
                     <CardContent className="text-center">
                         <p className="text-2xl lg:text-3xl font-bold text-green-400 font-headline">₹{Math.round(savings)}</p>
@@ -96,7 +96,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
                  <Card className="flex flex-col">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-headline flex items-center gap-2"><AlertTriangle className="w-4 h-4"/>Fatigue Monitor</CardTitle>
-                        <p className="text-xs text-muted-foreground -mt-2">An LSTM autoencoder detects anomalies in speed variance and acceleration patterns that may indicate fatigue.</p>
+                        <CardDescription className="text-xs -mt-2">Calculated from: Speed Variance, Sharp Brakes, and Acceleration Inconsistency.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow flex items-center justify-end">
                         <FatigueMonitorGauge fatigueLevel={state.fatigueLevel} />
@@ -107,7 +107,7 @@ export default function AnalyticsTab({ state }: AnalyticsTabProps) {
             <Card className="flex flex-col md:col-span-2">
                 <CardHeader className="p-4">
                     <h4 className="font-semibold text-sm font-headline flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4" />Dynamic Range Factors</h4>
-                    <p className="text-xs text-muted-foreground -mt-2">A regression model analyzes real-time data to predict how each factor impacts the vehicle's range.</p>
+                    <CardDescription className="text-xs -mt-2">A regression model analyzes real-time data to predict how each factor impacts the vehicle's range.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-0 h-full flex-grow min-h-0">
                     <DynamicRangeChart state={state} />

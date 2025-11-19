@@ -48,7 +48,7 @@ const GreenScoreCard = ({ score }: { score: number }) => {
           Green Score
         </CardTitle>
         <CardDescription className="text-xs -mt-2">
-          Calculated by comparing odometer against a standard gasoline car's CO2 emissions (~120g/km).
+          Formula: Odometer (km) × 120g CO₂/km
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
@@ -101,7 +101,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick }: Optimiz
             <Card className="flex flex-col">
                 <CardHeader className="items-center pb-2 text-center">
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><BarChart className="w-4 h-4"/>Eco-Driving Score</CardTitle>
-                    <CardDescription className="text-xs -mt-2 px-2">A penalty-based score calculated from harsh acceleration events and energy usage vs. baseline.</CardDescription>
+                    <CardDescription className="text-xs -mt-2 px-2">Based on: Harsh Acceleration events and Energy Usage vs. baseline.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow w-full flex flex-col items-center justify-start p-4">
                     <div className="w-48 h-48">
