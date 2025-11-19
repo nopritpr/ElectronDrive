@@ -273,8 +273,10 @@ export function useVehicleSimulation() {
   const triggerFatigueCheck = useCallback(async () => {
     const currentState = vehicleStateRef.current;
     if (currentState.speed < 1) {
-        // If speed is very low, don't check, but also don't clear the warning immediately.
-        // Let the warning persist until the next valid check.
+        const currentAi = aiStateRef.current;
+        if(currentAi.fatigueLevel > 0.1) {
+            setAiState({ fatigueLevel: currentAi.fatigueLevel * 0.99, fatigueWarning: null });
+        }
         return;
     }
     if (currentState.speedHistory.length < 10) return;
@@ -378,7 +380,6 @@ export function useVehicleSimulation() {
         instantPower += EV_CONSTANTS.acPower_kW * (Math.min(1, Math.abs(prevState.acTemp - prevState.outsideTemp) / 10));
     }
     
-    // Only drain the battery if the net power is positive
     if (instantPower > 0 && !prevState.isCharging) {
       const energyUsedKwh = instantPower * (timeDelta / 3600);
       const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
