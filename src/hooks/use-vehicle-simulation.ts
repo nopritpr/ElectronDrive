@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
@@ -284,15 +285,11 @@ export function useVehicleSimulation() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      // Pass the current state directly to the functions
-      setVehicleState(currentState => {
-        triggerAcUsageImpact(currentState);
-        triggerIdlePrediction(currentState);
-        return currentState;
-      })
+        triggerAcUsageImpact(vehicleState);
+        triggerIdlePrediction(vehicleState);
     }, 5000);
     return () => clearInterval(interval);
-  }, [triggerAcUsageImpact, triggerIdlePrediction]);
+  }, [triggerAcUsageImpact, triggerIdlePrediction, vehicleState]);
 
   useEffect(() => {
     calculateDynamicRange(vehicleState, aiState);
@@ -332,24 +329,25 @@ export function useVehicleSimulation() {
     }
   }, [vehicleState.weatherForecast, vehicleState.batterySOC, vehicleState.initialRange]);
 
-
   const updateVehicleState = useCallback((prevState: VehicleState): VehicleState => {
     const now = Date.now();
     const timeDelta = (now - prevState.lastUpdate) / 1000;
-    let newSOC = prevState.batterySOC;
 
     if (prevState.isCharging) {
+        let newSOC = prevState.batterySOC;
         const chargePerSecond = 1 / 5; // 1% SOC every 5 seconds
         newSOC += chargePerSecond * timeDelta;
         newSOC = Math.min(100, newSOC);
 
         return {
             ...prevState,
+            isCharging: true, // Persist charging state
             batterySOC: newSOC,
             lastUpdate: now,
         };
     }
     
+    let newSOC = prevState.batterySOC;
     const isActuallyIdle = prevState.speed === 0 && !prevState.isCharging;
 
     if (isActuallyIdle) {
@@ -408,9 +406,9 @@ export function useVehicleSimulation() {
     }
     
     if (instantPower > 0) {
-      const energyUsedKwh = instantPower * (timeDelta / 3600);
-      const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
-      newSOC -= socDelta;
+        const energyUsedKwh = instantPower * (timeDelta / 3600);
+        const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
+        newSOC -= socDelta;
     }
 
 
