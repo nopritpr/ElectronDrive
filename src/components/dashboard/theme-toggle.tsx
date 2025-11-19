@@ -8,8 +8,13 @@ export default function ThemeToggle() {
   const [isDark, setIsDark] = React.useState(true);
 
   React.useEffect(() => {
-    const isDarkMode = document.documentElement.classList.contains('dark');
+    const isDarkMode = localStorage.getItem('theme') === 'dark';
     setIsDark(isDarkMode);
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, []);
 
   const toggleTheme = (checked: boolean) => {
