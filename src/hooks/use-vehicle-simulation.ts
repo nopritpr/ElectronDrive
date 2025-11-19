@@ -435,14 +435,20 @@ export function useVehicleSimulation() {
   }, []);
 
   const fetchWeatherData = useCallback(async (lat: number, lon: number) => {
+    const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+    if (!apiKey || apiKey === "YOUR_API_KEY_HERE") {
+      console.warn("OpenWeatherMap API key is missing. Weather data will not be fetched.");
+      return;
+    }
+
     try {
-      const weatherResponse = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`);
+      const weatherResponse = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`);
       let weatherData: WeatherData | null = null;
       if (weatherResponse.ok) {
         weatherData = await weatherResponse.json();
       }
 
-      const forecastResponse = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY}`);
+      const forecastResponse = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`);
       let forecastData: FiveDayForecast | null = null;
       if (forecastResponse.ok) {
         forecastData = await forecastResponse.json();
@@ -538,11 +544,11 @@ export function useVehicleSimulation() {
   }, []);
   
   useEffect(() => {
-    const forecast = stateRef.current.weatherForecast;
+    const forecast = vehicleState.weatherForecast;
     if (forecast) {
       triggerWeatherImpactForecast(forecast);
     }
-  }, [stateRef.current.weatherForecast, triggerWeatherImpactForecast]);
+  }, [vehicleState.weatherForecast, triggerWeatherImpactForecast]);
   
 
   return {
