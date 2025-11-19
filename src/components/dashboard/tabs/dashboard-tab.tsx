@@ -25,7 +25,7 @@ import {
 
 interface DashboardTabProps {
   state: VehicleState;
-  setVehicleState: React.Dispatch<React.SetStateAction<Partial<VehicleState & AiState>>>;
+  setVehicleState: React.Dispatch<React.SetStateAction<VehicleState & AiState>>;
   setDriveMode: (mode: DriveMode) => void;
   toggleAC: () => void;
   setAcTemp: (temp: number) => void;

@@ -74,7 +74,7 @@ export default function Dashboard() {
           <TabsContent value="dashboard" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
             <DashboardTab
               {...cardProps}
-              setVehicleState={setVehicleState as React.Dispatch<React.SetStateAction<Partial<VehicleState & AiState>>>}
+              setVehicleState={setVehicleState}
             />
           </TabsContent>
           <TabsContent value="analytics" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
