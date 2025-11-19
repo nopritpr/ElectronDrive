@@ -48,14 +48,14 @@ const GreenScoreCard = ({ score }: { score: number }) => {
           Green Score
         </CardTitle>
         <CardDescription className="text-xs -mt-2">
-          A linear regression model estimates CO2 savings based on distance driven versus a standard gasoline car's emissions.
+          Calculated by comparing odometer against a standard gasoline car's CO2 emissions (~120g/km).
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
         <p className="text-3xl lg:text-4xl font-bold text-green-400 font-headline">
           {scoreInKg.toFixed(1)}
         </p>
-        <p className="text-sm font-medium text-muted-foreground">kg CO₂</p>
+        <p className="text-sm font-medium text-muted-foreground">kg CO₂ Saved</p>
       </CardContent>
     </Card>
   );
@@ -101,7 +101,7 @@ export default function OptimizationTab({ state, onProfileSwitchClick }: Optimiz
             <Card className="flex flex-col">
                 <CardHeader className="items-center pb-2 text-center">
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><BarChart className="w-4 h-4"/>Eco-Driving Score</CardTitle>
-                    <CardDescription className="text-xs -mt-2 px-2">Rates driving style on acceleration and energy use.</CardDescription>
+                    <CardDescription className="text-xs -mt-2 px-2">A penalty-based score calculated from harsh acceleration events and energy usage vs. baseline.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow w-full flex flex-col items-center justify-start p-4">
                     <div className="w-48 h-48">
