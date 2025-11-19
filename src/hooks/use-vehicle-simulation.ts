@@ -80,21 +80,21 @@ export function useVehicleSimulation() {
     setVehicleState({ goodsInBoot: !vehicleStateRef.current.goodsInBoot });
   };
 
-  const toggleCharging = () => {
+  const toggleCharging = useCallback(() => {
     setVehicleState(prevState => {
-      const now = Date.now();
       const isCurrentlyCharging = prevState.isCharging;
 
       if (prevState.speed > 0 && !isCurrentlyCharging) {
         toast({
-            title: "Cannot start charging",
-            description: "Vehicle must be stationary to start charging.",
-            variant: "destructive",
+          title: "Cannot start charging",
+          description: "Vehicle must be stationary to start charging.",
+          variant: "destructive",
         });
-        return prevState; 
+        return prevState;
       }
 
       const isNowCharging = !isCurrentlyCharging;
+      const now = Date.now();
 
       if (isNowCharging) {
         return {
@@ -129,7 +129,7 @@ export function useVehicleSimulation() {
         };
       }
     });
-  };
+  }, [toast]);
 
   const resetTrip = () => {
     const currentState = vehicleStateRef.current;
@@ -184,6 +184,7 @@ export function useVehicleSimulation() {
     const currentState = vehicleStateRef.current;
     if (currentState.speed < 10) {
       // Don't check for fatigue if speed is low.
+      setAiState({ fatigueWarning: null });
       return;
     }
     if (currentState.speedHistory.length < 10) return;
@@ -195,12 +196,10 @@ export function useVehicleSimulation() {
       };
       const fatigueResult = await monitorDriverFatigue(fatigueInput);
       
-      const newFatigueLevel = fatigueResult.confidence;
-      
       setAiState(prevState => ({
         ...prevState,
-        fatigueLevel: newFatigueLevel,
-        fatigueWarning: fatigueResult.isFatigued ? fatigueResult.reasoning : (newFatigueLevel < 0.5 ? null : prevState.fatigueWarning),
+        fatigueLevel: fatigueResult.confidence,
+        fatigueWarning: fatigueResult.isFatigued ? fatigueResult.reasoning : (fatigueResult.confidence < 0.5 ? null : prevState.fatigueWarning),
       }));
 
     } catch (error) {
@@ -523,7 +522,7 @@ export function useVehicleSimulation() {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [toggleCharging]);
 
   return {
     state: { ...vehicleState, ...aiState },
@@ -541,3 +540,5 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
+
+    
