@@ -132,9 +132,10 @@ export function useVehicleSimulation() {
   }, [toast]);
 
   const resetTrip = () => {
-    const currentState = vehicleStateRef.current;
-    if (currentState.activeTrip === 'A') setVehicleState({ tripA: 0 });
-    else setVehicleState({ tripB: 0 });
+    setVehicleState(prevState => {
+        if (prevState.activeTrip === 'A') return { ...prevState, tripA: 0 };
+        return { ...prevState, tripB: 0 };
+    });
   };
   const setActiveTrip = (trip: 'A' | 'B') => setVehicleState({ activeTrip: trip });
 
@@ -164,36 +165,41 @@ export function useVehicleSimulation() {
   };
 
   const deleteProfile = (profileName: string) => {
-    const currentState = vehicleStateRef.current;
-    if (profileName && currentState.profiles[profileName] && Object.keys(currentState.profiles).length > 1) {
-        const newProfiles = { ...currentState.profiles };
-        delete newProfiles[profileName];
-        
-        let nextProfile = currentState.activeProfile;
-        if (currentState.activeProfile === profileName) {
-            nextProfile = Object.keys(newProfiles)[0];
+    setVehicleState(prevState => {
+        if (profileName && prevState.profiles[profileName] && Object.keys(prevState.profiles).length > 1) {
+            const newProfiles = { ...prevState.profiles };
+            delete newProfiles[profileName];
+            
+            let nextProfile = prevState.activeProfile;
+            if (prevState.activeProfile === profileName) {
+                nextProfile = Object.keys(newProfiles)[0];
+            }
+            toast({ title: `Profile ${profileName} deleted.`});
+            // Also switch to the next profile
+            return { 
+                ...prevState, 
+                profiles: newProfiles, 
+                activeProfile: nextProfile,
+                ...newProfiles[nextProfile]
+            };
         }
-
-        setVehicleState({ profiles: newProfiles });
-        switchProfile(nextProfile);
-        toast({ title: `Profile ${profileName} deleted.`});
-    }
+        return prevState;
+    });
   };
 
-  const triggerFatigueCheck = useCallback(async () => {
-    const currentState = vehicleStateRef.current;
-    if (currentState.speed < 10) {
+  const triggerFatigueCheck = useCallback(async (state: VehicleState) => {
+    if (state.speed < 10) {
       if (aiStateRef.current.fatigueWarning) {
         setAiState({ fatigueWarning: null });
       }
       return;
     }
-    if (currentState.speedHistory.length < 10) return;
+    if (state.speedHistory.length < 10) return;
 
     try {
       const fatigueInput: DriverFatigueInput = {
-        speedHistory: currentState.speedHistory,
-        accelerationHistory: currentState.accelerationHistory,
+        speedHistory: state.speedHistory,
+        accelerationHistory: state.accelerationHistory,
       };
       const fatigueResult = await monitorDriverFatigue(fatigueInput);
       
@@ -209,35 +215,33 @@ export function useVehicleSimulation() {
   }, []);
 
   
-  const calculateDynamicRange = useCallback(() => {
-    const currentState = vehicleStateRef.current;
-    const currentAiState = aiStateRef.current;
-    const idealRange = currentState.initialRange * (currentState.batterySOC / 100);
+  const calculateDynamicRange = useCallback((state: VehicleState, aiState: AiState) => {
+    const idealRange = state.initialRange * (state.batterySOC / 100);
 
     let penaltyPercentage = { ac: 0, load: 0, temp: 0, driveMode: 0 };
     
-    if (currentAiState.acUsageImpact && currentState.acOn) {
-        const acImpactKmPerHour = Math.abs(currentAiState.acUsageImpact.rangeImpactKm);
-        const estimatedDriveHours = currentState.speed > 0 ? (idealRange / currentState.speed) : 4;
+    if (aiState.acUsageImpact && state.acOn) {
+        const acImpactKmPerHour = Math.abs(aiState.acUsageImpact.rangeImpactKm);
+        const estimatedDriveHours = state.speed > 0 ? (idealRange / state.speed) : 4;
         const totalAcPenaltyKm = Math.min(acImpactKmPerHour * estimatedDriveHours, idealRange * 0.2); // Cap penalty
         if (idealRange > 0) {
             penaltyPercentage.ac = totalAcPenaltyKm / idealRange;
         }
     }
 
-    const passengerPenalty = (currentState.passengers - 1) * 0.015;
-    const goodsPenalty = currentState.goodsInBoot ? 0.03 : 0;
+    const passengerPenalty = (state.passengers - 1) * 0.015;
+    const goodsPenalty = state.goodsInBoot ? 0.03 : 0;
     penaltyPercentage.load = passengerPenalty + goodsPenalty;
     
-    const outsideTemp = currentState.outsideTemp || 22;
+    const outsideTemp = state.outsideTemp || 22;
     if (outsideTemp < 10) {
         penaltyPercentage.temp = (10 - outsideTemp) * 0.01;
     } else if (outsideTemp > 25) {
         penaltyPercentage.temp = (outsideTemp - 25) * 0.007;
     }
 
-    if (currentState.driveMode === 'City') penaltyPercentage.driveMode = 0.07;
-    else if (currentState.driveMode === 'Sports') penaltyPercentage.driveMode = 0.18;
+    if (state.driveMode === 'City') penaltyPercentage.driveMode = 0.07;
+    else if (state.driveMode === 'Sports') penaltyPercentage.driveMode = 0.18;
 
     const totalPenaltyPercentage = penaltyPercentage.ac + penaltyPercentage.load + penaltyPercentage.temp + penaltyPercentage.driveMode;
     const predictedRange = idealRange * (1 - totalPenaltyPercentage);
@@ -252,14 +256,13 @@ export function useVehicleSimulation() {
     setVehicleState({ range: predictedRange, predictedDynamicRange: predictedRange, rangePenalties: finalPenalties });
   }, []);
 
-  const triggerAcUsageImpact = useCallback(async () => {
-    const currentState = vehicleStateRef.current;
+  const triggerAcUsageImpact = useCallback(async (state: VehicleState) => {
     try {
       const acImpactInput: AcUsageImpactInput = {
-        acOn: currentState.acOn,
-        acTemp: currentState.acTemp,
-        outsideTemp: currentState.outsideTemp,
-        recentEfficiency: currentState.recentWhPerKm > 0 ? currentState.recentWhPerKm : 160,
+        acOn: state.acOn,
+        acTemp: state.acTemp,
+        outsideTemp: state.outsideTemp,
+        recentEfficiency: state.recentWhPerKm > 0 ? state.recentWhPerKm : 160,
       };
       const acImpactResult = await getAcUsageImpact(acImpactInput);
       setAiState({ acUsageImpact: acImpactResult });
@@ -269,17 +272,16 @@ export function useVehicleSimulation() {
     }
   }, []);
 
-  const triggerIdlePrediction = useCallback(async () => {
-    const currentState = vehicleStateRef.current;
-    if (currentState.speed > 0 || currentState.isCharging) return;
+  const triggerIdlePrediction = useCallback(async (state: VehicleState) => {
+    if (state.speed > 0 || state.isCharging) return;
     try {
       const drainInput: PredictiveIdleDrainInput = {
-        currentBatterySOC: currentState.batterySOC,
-        acOn: currentState.acOn,
-        acTemp: currentState.acTemp,
-        outsideTemp: currentState.outsideTemp,
-        passengers: currentState.passengers,
-        goodsInBoot: currentState.goodsInBoot,
+        currentBatterySOC: state.batterySOC,
+        acOn: state.acOn,
+        acTemp: state.acTemp,
+        outsideTemp: state.outsideTemp,
+        passengers: state.passengers,
+        goodsInBoot: state.goodsInBoot,
       };
       const drainResult = await predictIdleDrain(drainInput);
       setAiState(prevState => ({ ...prevState, idleDrainPrediction: drainResult }));
@@ -290,14 +292,14 @@ export function useVehicleSimulation() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-        triggerAcUsageImpact();
-        triggerIdlePrediction();
+        triggerAcUsageImpact(vehicleStateRef.current);
+        triggerIdlePrediction(vehicleStateRef.current);
     }, 5000);
     return () => clearInterval(interval);
   }, [triggerAcUsageImpact, triggerIdlePrediction]);
 
   useEffect(() => {
-    calculateDynamicRange();
+    calculateDynamicRange(vehicleStateRef.current, aiStateRef.current);
   }, [vehicleState.batterySOC, vehicleState.acOn, vehicleState.acTemp, vehicleState.driveMode, vehicleState.passengers, vehicleState.goodsInBoot, vehicleState.outsideTemp, aiState.acUsageImpact, calculateDynamicRange]);
 
   const isWeatherImpactRunning = useRef(false);
@@ -339,10 +341,6 @@ export function useVehicleSimulation() {
     const now = Date.now();
     const timeDelta = (now - prevState.lastUpdate) / 1000;
     
-    if (timeDelta <= 0) {
-      return prevState;
-    }
-
     let newSOC = prevState.batterySOC;
 
     if (prevState.isCharging) {
@@ -420,7 +418,6 @@ export function useVehicleSimulation() {
       newSOC -= socDelta;
     }
 
-
     newSOC = Math.max(0, Math.min(100, newSOC));
     
     const newOdometer = prevState.odometer + distanceTraveledKm;
@@ -461,7 +458,7 @@ export function useVehicleSimulation() {
     };
     
     if (now > lastFatigueCheckTime.current + 2000) {
-        triggerFatigueCheck();
+        triggerFatigueCheck(prevState);
         lastFatigueCheckTime.current = now;
     }
 
