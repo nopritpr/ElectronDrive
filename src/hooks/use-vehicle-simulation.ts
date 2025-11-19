@@ -179,6 +179,35 @@ export function useVehicleSimulation() {
         toast({ title: `Profile ${profileName} deleted.`});
     }
   };
+
+  const triggerFatigueCheck = useCallback(async () => {
+    const currentState = vehicleStateRef.current;
+    if (currentState.speed < 10) {
+      // Don't check for fatigue if speed is low.
+      return;
+    }
+    if (currentState.speedHistory.length < 10) return;
+
+    try {
+      const fatigueInput: DriverFatigueInput = {
+        speedHistory: currentState.speedHistory,
+        accelerationHistory: currentState.accelerationHistory,
+      };
+      const fatigueResult = await monitorDriverFatigue(fatigueInput);
+      
+      const newFatigueLevel = fatigueResult.confidence;
+      
+      setAiState(prevState => ({
+        ...prevState,
+        fatigueLevel: newFatigueLevel,
+        fatigueWarning: fatigueResult.isFatigued ? fatigueResult.reasoning : (newFatigueLevel < 0.5 ? null : prevState.fatigueWarning),
+      }));
+
+    } catch (error) {
+      console.error("Error calling monitorDriverFatigue:", error);
+    }
+  }, []);
+
   
   const calculateDynamicRange = useCallback(() => {
     const currentState = vehicleStateRef.current;
@@ -259,33 +288,6 @@ export function useVehicleSimulation() {
     }
   }, []);
 
-  const triggerFatigueCheck = useCallback(async () => {
-    const currentState = vehicleStateRef.current;
-    if (currentState.speed < 10) {
-      // Don't check for fatigue if speed is low, but also don't reset the warning immediately.
-      // The warning will clear when driving smoothly again.
-      return;
-    }
-    if (currentState.speedHistory.length < 10) return;
-
-    try {
-      const fatigueInput: DriverFatigueInput = {
-        speedHistory: currentState.speedHistory,
-        accelerationHistory: currentState.accelerationHistory,
-      };
-      const fatigueResult = await monitorDriverFatigue(fatigueInput);
-      
-      setAiState(prevState => ({
-        ...prevState,
-        fatigueLevel: fatigueResult.confidence,
-        fatigueWarning: fatigueResult.isFatigued ? fatigueResult.reasoning : (fatigueResult.confidence < 0.5 ? null : prevState.fatigueWarning),
-      }));
-
-    } catch (error) {
-      console.error("Error calling monitorDriverFatigue:", error);
-    }
-  }, []);
-
   useEffect(() => {
     const interval = setInterval(() => {
         triggerAcUsageImpact();
@@ -344,6 +346,20 @@ export function useVehicleSimulation() {
     }
 
     let newSOC = prevState.batterySOC;
+
+    if (prevState.isCharging) {
+        const chargePerSecond = 1 / 5; // 1% SOC every 5 seconds
+        newSOC += chargePerSecond * timeDelta;
+        newSOC = Math.min(100, newSOC);
+
+        setVehicleState({
+            batterySOC: newSOC,
+            lastUpdate: now,
+        });
+
+        requestRef.current = requestAnimationFrame(updateVehicleState);
+        return;
+    }
     
     const isActuallyIdle = prevState.speed === 0 && !prevState.isCharging;
 
@@ -361,7 +377,6 @@ export function useVehicleSimulation() {
 
       const totalDrainPerSecond = totalDrainPerHour / 3600;
       newSOC -= totalDrainPerSecond * timeDelta;
-      
     }
 
     const modeSettings = MODE_SETTINGS[prevState.driveMode];
@@ -403,15 +418,10 @@ export function useVehicleSimulation() {
         instantPower += EV_CONSTANTS.acPower_kW * (Math.min(1, Math.abs(prevState.acTemp - prevState.outsideTemp) / 10));
     }
     
-    if (instantPower > 0 && !prevState.isCharging) {
+    if (instantPower > 0) {
       const energyUsedKwh = instantPower * (timeDelta / 3600);
       const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
       newSOC -= socDelta;
-    }
-    
-    if (prevState.isCharging) {
-      const chargePerSecond = 1 / 5;
-      newSOC += chargePerSecond * timeDelta;
     }
 
     newSOC = Math.max(0, Math.min(100, newSOC));
@@ -476,6 +486,7 @@ export function useVehicleSimulation() {
     requestRef.current = requestAnimationFrame(updateVehicleState);
   }, [triggerFatigueCheck]);
 
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -530,7 +541,3 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
-
-    
-
-    
