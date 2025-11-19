@@ -83,7 +83,7 @@ export function useVehicleSimulation() {
   const toggleCharging = useCallback(() => {
     setVehicleState(prevState => {
       const isCurrentlyCharging = prevState.isCharging;
-
+  
       if (prevState.speed > 0 && !isCurrentlyCharging) {
         toast({
           title: "Cannot start charging",
@@ -92,10 +92,10 @@ export function useVehicleSimulation() {
         });
         return prevState;
       }
-
+  
       const isNowCharging = !isCurrentlyCharging;
       const now = Date.now();
-
+  
       if (isNowCharging) {
         return {
           ...prevState,
@@ -110,7 +110,7 @@ export function useVehicleSimulation() {
         if (!lastChargeLog) {
            return { ...prevState, isCharging: false };
         }
-
+  
         const energyAdded = (batterySOC - lastChargeLog.startSOC) / 100 * prevState.packNominalCapacity_kWh;
         const newLog: ChargingLog = {
           startTime: lastChargeLog.startTime,
@@ -120,7 +120,7 @@ export function useVehicleSimulation() {
           energyAdded: Math.max(0, energyAdded),
         };
         const newLogs = [...chargingLogs, newLog].slice(-10);
-
+  
         return {
           ...prevState,
           isCharging: false,
@@ -335,14 +335,12 @@ export function useVehicleSimulation() {
   }, [vehicleState.weatherForecast]);
 
 
-  const updateVehicleState = useCallback(() => {
-    const prevState = vehicleStateRef.current;
+  const updateVehicleState = useCallback((prevState: VehicleState): VehicleState => {
     const now = Date.now();
     const timeDelta = (now - prevState.lastUpdate) / 1000;
     
     if (timeDelta <= 0) {
-      requestRef.current = requestAnimationFrame(updateVehicleState);
-      return;
+      return prevState;
     }
 
     let newSOC = prevState.batterySOC;
@@ -352,13 +350,11 @@ export function useVehicleSimulation() {
         newSOC += chargePerSecond * timeDelta;
         newSOC = Math.min(100, newSOC);
 
-        setVehicleState({
+        return {
+            ...prevState,
             batterySOC: newSOC,
             lastUpdate: now,
-        });
-
-        requestRef.current = requestAnimationFrame(updateVehicleState);
-        return;
+        };
     }
     
     const isActuallyIdle = prevState.speed === 0 && !prevState.isCharging;
@@ -482,9 +478,7 @@ export function useVehicleSimulation() {
         newVehicleState.sohHistory = [...prevState.sohHistory, newSohEntry];
     }
     
-    setVehicleState(newVehicleState);
-
-    requestRef.current = requestAnimationFrame(updateVehicleState);
+    return {...prevState, ...newVehicleState};
   }, [triggerFatigueCheck]);
 
 
@@ -516,7 +510,11 @@ export function useVehicleSimulation() {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
-    requestRef.current = requestAnimationFrame(updateVehicleState);
+    const tick = () => {
+        setVehicleState(updateVehicleState);
+        requestRef.current = requestAnimationFrame(tick);
+    }
+    requestRef.current = requestAnimationFrame(tick);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -524,7 +522,7 @@ export function useVehicleSimulation() {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toggleCharging]);
+  }, [toggleCharging, updateVehicleState]);
 
   return {
     state: { ...vehicleState, ...aiState },
@@ -542,5 +540,3 @@ export function useVehicleSimulation() {
     toggleGoodsInBoot,
   };
 }
-
-    
