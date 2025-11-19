@@ -183,8 +183,9 @@ export function useVehicleSimulation() {
   const triggerFatigueCheck = useCallback(async () => {
     const currentState = vehicleStateRef.current;
     if (currentState.speed < 10) {
-      // Don't check for fatigue if speed is low.
-      setAiState({ fatigueWarning: null });
+      if (aiStateRef.current.fatigueWarning) {
+        setAiState({ fatigueWarning: null });
+      }
       return;
     }
     if (currentState.speedHistory.length < 10) return;
@@ -422,6 +423,7 @@ export function useVehicleSimulation() {
       const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
       newSOC -= socDelta;
     }
+
 
     newSOC = Math.max(0, Math.min(100, newSOC));
     
