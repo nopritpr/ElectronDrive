@@ -521,24 +521,18 @@ export function useVehicleSimulation() {
   // Initial Geolocation and Weather Fetch
   useEffect(() => {
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(position => {
-        const { latitude, longitude } = position.coords;
-        setVehicleState(prevState => ({
-            ...prevState,
-            weather: { ...prevState.weather, coord: { lat: latitude, lon: longitude } } as any,
-        }));
-        fetchWeatherData(latitude, longitude);
-      }, (error) => {
-        console.error("Geolocation error:", error);
-        // Fallback to default location if user denies permission
-        const defaultLat = 37.8;
-        const defaultLon = -122.4;
-        setVehicleState(prevState => ({
-          ...prevState,
-          weather: { ...prevState.weather, coord: { lat: defaultLat, lon: defaultLon } } as any,
-        }));
-        fetchWeatherData(defaultLat, defaultLon);
-      });
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          fetchWeatherData(latitude, longitude);
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          const defaultLat = 37.8;
+          const defaultLon = -122.4;
+          fetchWeatherData(defaultLat, defaultLon);
+        }
+      );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
