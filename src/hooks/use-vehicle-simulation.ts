@@ -184,7 +184,7 @@ export function useVehicleSimulation() {
     });
   };
 
-  const triggerFatigueCheck = async () => {
+  const triggerFatigueCheck = useCallback(() => {
     const state = vehicleStateRef.current;
     if (state.speed < 10) {
       if (aiStateRef.current.fatigueWarning) {
@@ -194,23 +194,23 @@ export function useVehicleSimulation() {
     }
     if (state.speedHistory.length < 10) return;
 
-    try {
-      const fatigueInput: DriverFatigueInput = {
+    const fatigueInput: DriverFatigueInput = {
         speedHistory: state.speedHistory,
         accelerationHistory: state.accelerationHistory,
-      };
-      const fatigueResult = await monitorDriverFatigue(fatigueInput);
-      
-      setAiState(prevState => ({
-        ...prevState,
-        fatigueLevel: fatigueResult.confidence,
-        fatigueWarning: fatigueResult.isFatigued ? fatigueResult.reasoning : (fatigueResult.confidence < 0.5 ? null : prevState.fatigueWarning),
-      }));
+    };
 
-    } catch (error) {
-      console.error("Error calling monitorDriverFatigue:", error);
-    }
-  };
+    monitorDriverFatigue(fatigueInput)
+      .then(fatigueResult => {
+        setAiState(prevState => ({
+          ...prevState,
+          fatigueLevel: fatigueResult.confidence,
+          fatigueWarning: fatigueResult.isFatigued ? fatigueResult.reasoning : (fatigueResult.confidence < 0.5 ? null : prevState.fatigueWarning),
+        }));
+      })
+      .catch(error => {
+        console.error("Error calling monitorDriverFatigue:", error);
+      });
+  }, []);
   
   const calculateDynamicRange = useCallback((state: VehicleState, aiState: AiState) => {
     const idealRange = state.initialRange * (state.batterySOC / 100);
@@ -296,14 +296,14 @@ export function useVehicleSimulation() {
     }, 5000);
     
     const fatigueInterval = setInterval(() => {
-        triggerFatigueCheck();
+      triggerFatigueCheck();
     }, 2000);
 
     return () => {
         clearInterval(aiInterval);
         clearInterval(fatigueInterval);
     };
-  }, [triggerAcUsageImpact, triggerIdlePrediction]);
+  }, [triggerAcUsageImpact, triggerIdlePrediction, triggerFatigueCheck]);
 
   useEffect(() => {
     calculateDynamicRange(vehicleState, aiState);
