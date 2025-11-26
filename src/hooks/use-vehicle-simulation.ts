@@ -7,7 +7,7 @@ import { defaultState, EV_CONSTANTS, MODE_SETTINGS, defaultAiState } from '@/lib
 import { useToast } from '@/hooks/use-toast';
 import { getDrivingRecommendation, type DrivingRecommendationInput } from '@/ai/flows/adaptive-driving-recommendations';
 import { analyzeDrivingStyle, type AnalyzeDrivingStyleInput } from '@/ai/flows/driver-profiling';
-import { predictIdleDrain } from '@/ai/flows/predictive-idle-drain';
+
 import { monitorDriverFatigue, type DriverFatigueInput } from '@/ai/flows/driver-fatigue-monitor';
 import { getAcUsageImpact, type AcUsageImpactInput } from '@/ai/flows/ac-usage-impact-forecaster';
 import { getWeatherImpact } from '@/ai/flows/weather-impact-forecast';
@@ -22,6 +22,64 @@ const initialState: VehicleState = {
     ...defaultState,
     odometer: 0,
     sohHistory: [],
+};
+
+const calculateIdleDrain = (input: PredictiveIdleDrainInput): PredictiveIdleDrainOutput => {
+  const {
+    currentBatterySOC,
+    outsideTemp,
+    cabinOverheatProtectionOn,
+    sentryModeOn,
+    dashcamOn,
+  } = input;
+
+  const DRAIN_WATTS = {
+    BMS: 35,
+    SENTRY_MODE: 250,
+    DASHCAM: 5,
+    CABIN_PROTECTION_COOLING: 600,
+    CABIN_PROTECTION_HEATING: 800,
+  };
+
+  let bmsDrain = DRAIN_WATTS.BMS;
+  let sentryDrain = sentryModeOn ? DRAIN_WATTS.SENTRY_MODE : 0;
+  let dashcamDrain = dashcamOn ? DRAIN_WATTS.DASHCAM : 0;
+  let cabinProtectionDrain = 0;
+
+  if (cabinOverheatProtectionOn) {
+    if (outsideTemp > 35) {
+      cabinProtectionDrain = DRAIN_WATTS.CABIN_PROTECTION_COOLING * 0.25;
+    } else if (outsideTemp < 5) {
+      cabinProtectionDrain = DRAIN_WATTS.CABIN_PROTECTION_HEATING * 0.25;
+    }
+  }
+
+  const totalPowerDrainWatts = bmsDrain + sentryDrain + dashcamDrain + cabinProtectionDrain;
+  const totalSocLossPerHour = (totalPowerDrainWatts * 1 / input.packCapacityKwh / 1000) * 100;
+  
+  const hourlyPrediction: { hour: number; soc: number }[] = [];
+  let currentSOC = currentBatterySOC;
+
+  for (let i = 1; i <= 8; i++) {
+    currentSOC -= totalSocLossPerHour;
+    currentSOC = Math.max(0, currentSOC);
+    hourlyPrediction.push({
+      hour: i,
+      soc: parseFloat(currentSOC.toFixed(2)),
+    });
+  }
+
+  let drainBreakdown = { bms: 0, cabinProtection: 0, sentryMode: 0, dashcam: 0 };
+  if (totalPowerDrainWatts > 0) {
+    drainBreakdown = {
+      bms: (bmsDrain / totalPowerDrainWatts) * 100,
+      cabinProtection: (cabinProtectionDrain / totalPowerDrainWatts) * 100,
+      sentryMode: (sentryDrain / totalPowerDrainWatts) * 100,
+      dashcam: (dashcamDrain / totalPowerDrainWatts) * 100,
+    };
+  }
+
+  return { hourlyPrediction, drainBreakdown };
 };
 
 export function useVehicleSimulation() {
@@ -54,7 +112,7 @@ export function useVehicleSimulation() {
     setVehicleState(prevState => ({ ...prevState, goodsInBoot: !prevState.goodsInBoot }));
   }, []);
 
-  const triggerIdlePrediction = useCallback(async () => {
+  const triggerIdlePrediction = useCallback(() => {
       const state = stateRef.current;
       if (state.speed > 0 || state.isCharging) {
         if (state.idleDrainPrediction !== null) {
@@ -62,20 +120,18 @@ export function useVehicleSimulation() {
         }
         return;
       };
-      try {
-        const drainInput: PredictiveIdleDrainInput = {
-          currentBatterySOC: state.batterySOC,
-          outsideTemp: state.outsideTemp,
-          cabinOverheatProtectionOn: state.cabinOverheatProtectionOn,
-          sentryModeOn: state.sentryModeOn,
-          dashcamOn: state.dashcamOn,
-          packCapacityKwh: state.packNominalCapacity_kWh
-        };
-        const drainResult = await predictIdleDrain(drainInput);
-        setVehicleState(prevState => ({ ...prevState, idleDrainPrediction: drainResult }));
-      } catch (error) {
-        console.error("Error calling predictIdleDrain:", error);
-      }
+      
+      const drainInput: PredictiveIdleDrainInput = {
+        currentBatterySOC: state.batterySOC,
+        outsideTemp: state.outsideTemp,
+        cabinOverheatProtectionOn: state.cabinOverheatProtectionOn,
+        sentryModeOn: state.sentryModeOn,
+        dashcamOn: state.dashcamOn,
+        packCapacityKwh: state.packNominalCapacity_kWh
+      };
+      const drainResult = calculateIdleDrain(drainInput);
+      setVehicleState(prevState => ({ ...prevState, idleDrainPrediction: drainResult }));
+      
   }, []);
 
   const toggleDashcam = useCallback(() => {
