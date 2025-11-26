@@ -54,9 +54,44 @@ export function useVehicleSimulation() {
     setVehicleState(prevState => ({ ...prevState, goodsInBoot: !prevState.goodsInBoot }));
   }, []);
 
-  const toggleDashcam = useCallback(() => setVehicleState(prevState => ({ ...prevState, dashcamOn: !prevState.dashcamOn })), []);
-  const toggleSentryMode = useCallback(() => setVehicleState(prevState => ({ ...prevState, sentryModeOn: !prevState.sentryModeOn })), []);
-  const toggleCabinOverheatProtection = useCallback(() => setVehicleState(prevState => ({ ...prevState, cabinOverheatProtectionOn: !prevState.cabinOverheatProtectionOn })), []);
+  const triggerIdlePrediction = useCallback(async () => {
+      const state = stateRef.current;
+      if (state.speed > 0 || state.isCharging) {
+        if (state.idleDrainPrediction !== null) {
+          setVehicleState(prevState => ({ ...prevState, idleDrainPrediction: null }));
+        }
+        return;
+      };
+      try {
+        const drainInput: PredictiveIdleDrainInput = {
+          currentBatterySOC: state.batterySOC,
+          outsideTemp: state.outsideTemp,
+          cabinOverheatProtectionOn: state.cabinOverheatProtectionOn,
+          sentryModeOn: state.sentryModeOn,
+          dashcamOn: state.dashcamOn,
+          packCapacityKwh: state.packNominalCapacity_kWh
+        };
+        const drainResult = await predictIdleDrain(drainInput);
+        setVehicleState(prevState => ({ ...prevState, idleDrainPrediction: drainResult }));
+      } catch (error) {
+        console.error("Error calling predictIdleDrain:", error);
+      }
+  }, []);
+
+  const toggleDashcam = useCallback(() => {
+    setVehicleState(prevState => ({ ...prevState, dashcamOn: !prevState.dashcamOn }));
+    triggerIdlePrediction();
+  }, [triggerIdlePrediction]);
+
+  const toggleSentryMode = useCallback(() => {
+    setVehicleState(prevState => ({ ...prevState, sentryModeOn: !prevState.sentryModeOn }));
+    triggerIdlePrediction();
+  }, [triggerIdlePrediction]);
+  
+  const toggleCabinOverheatProtection = useCallback(() => {
+    setVehicleState(prevState => ({ ...prevState, cabinOverheatProtectionOn: !prevState.cabinOverheatProtectionOn }));
+    triggerIdlePrediction();
+  }, [triggerIdlePrediction]);
 
   const toggleCharging = useCallback(() => {
     setVehicleState(prevState => {
@@ -340,29 +375,6 @@ export function useVehicleSimulation() {
       }
   }, []);
 
-  const triggerIdlePrediction = useCallback(async () => {
-      const state = stateRef.current;
-      if (state.speed > 0 || state.isCharging) {
-        if (state.idleDrainPrediction !== null) {
-          setVehicleState(prevState => ({ ...prevState, idleDrainPrediction: null }));
-        }
-        return;
-      };
-      try {
-        const drainInput: PredictiveIdleDrainInput = {
-          currentBatterySOC: state.batterySOC,
-          outsideTemp: state.outsideTemp,
-          cabinOverheatProtectionOn: state.cabinOverheatProtectionOn,
-          sentryModeOn: state.sentryModeOn,
-          dashcamOn: state.dashcamOn,
-          packCapacityKwh: state.packNominalCapacity_kWh
-        };
-        const drainResult = await predictIdleDrain(drainInput);
-        setVehicleState(prevState => ({ ...prevState, idleDrainPrediction: drainResult }));
-      } catch (error) {
-        console.error("Error calling predictIdleDrain:", error);
-      }
-  }, []);
   
   const triggerFatigueCheck = useCallback(() => {
     const state = stateRef.current;
