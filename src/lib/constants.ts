@@ -67,11 +67,6 @@ export const defaultState: Omit<VehicleState, 'sohHistory'> = {
   lastRangeSpeed: 0,
   lastRawDynamicRange: null,
   isCharging: false,
-  profiles: {
-    'Pritesh': { id: 'USR-001', driveMode: 'Eco', acTemp: 22, phone: '555-1234', age: 34 },
-    
-  },
-  activeProfile: 'Pritesh',
   weather: null,
   weatherForecast: null,
   rangePenalties: {
@@ -79,7 +74,10 @@ export const defaultState: Omit<VehicleState, 'sohHistory'> = {
     load: 0,
     temp: 0,
     driveMode: 0,
-  }
+  },
+  dashcamOn: false,
+  sentryModeOn: false,
+  cabinOverheatProtectionOn: false,
 };
 
 export const defaultAiState: AiState = {

@@ -1,25 +1,56 @@
 
 'use client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import EcoScoreGauge from "../charts/eco-score-gauge";
 import type { VehicleState, AiState } from "@/lib/types";
-import { Leaf, User, BrainCircuit, BarChart, Wind, TrendingDown, TrendingUp, Zap } from "lucide-react";
+import { Leaf, BrainCircuit, BarChart, Wind, TrendingDown, TrendingUp, Zap, ShieldCheck, Video, ThermometerSun } from "lucide-react";
 import IdleDrainChart from "../charts/idle-drain-chart";
 import { EV_CONSTANTS } from "@/lib/constants";
+import { Progress } from "@/components/ui/progress";
 
 interface OptimizationTabProps {
     state: VehicleState & AiState;
-    onProfileSwitchClick: () => void;
-    onStabilizerToggle: () => void;
+    onDashcamToggle: () => void;
+    onSentryModeToggle: () => void;
+    onCabinOverheatProtectionToggle: () => void;
 }
 
-const ProfileDetail = ({ label, value }: { label: string, value: string | number | undefined }) => (
-    <div className="flex justify-between items-center text-xs py-1.5 border-b border-border/50">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-mono font-medium">{value || 'N/A'}</span>
-    </div>
-);
+const DrainBreakdown = ({ breakdown }: { breakdown: AiState['idleDrainPrediction']['drainBreakdown'] | null }) => {
+    const factors = [
+        { name: 'BMS', value: breakdown?.bms || 0, color: 'bg-sky-500' },
+        { name: 'Sentry', value: breakdown?.sentryMode || 0, color: 'bg-yellow-500' },
+        { name: 'Cabin', value: breakdown?.cabinProtection || 0, color: 'bg-red-500' },
+        { name: 'Dashcam', value: breakdown?.dashcam || 0, color: 'bg-purple-500' },
+    ].filter(f => f.value > 0);
+
+    if (!breakdown || factors.length === 0) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <p className="text-xs text-muted-foreground">No idle drain sources active.</p>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="w-full flex flex-col gap-2">
+            <div className="w-full h-3 flex rounded-full overflow-hidden">
+                {factors.map(factor => (
+                    <div key={factor.name} className={factor.color} style={{ width: `${factor.value}%` }} />
+                ))}
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                {factors.map(factor => (
+                    <div key={factor.name} className="flex items-center gap-1.5">
+                        <div className={`w-2 h-2 rounded-full ${factor.color}`} />
+                        <span>{factor.name} ({factor.value.toFixed(0)}%)</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 const AcImpactDisplay = ({ impact, recommendation, reasoning }: { impact: number, recommendation: string, reasoning: string }) => {
   const isGain = impact > 0;
@@ -90,9 +121,7 @@ const EcoScoreReasoning = ({ acceleration, currentWhPerKm, power }: { accelerati
 };
 
 
-export default function OptimizationTab({ state, onProfileSwitchClick }: OptimizationTabProps) {
-
-  const activeProfileData = state.profiles[state.activeProfile];
+export default function OptimizationTab({ state, onDashcamToggle, onSentryModeToggle, onCabinOverheatProtectionToggle }: OptimizationTabProps) {
   
   const greenScore = state.odometer > 0 ? state.odometer * 120 : 0; // 120g CO2 saved per km vs average ICE car
 
@@ -127,16 +156,24 @@ export default function OptimizationTab({ state, onProfileSwitchClick }: Optimiz
 
 
             <Card className="p-4 row-start-3 md:row-start-auto">
-                <CardHeader className="flex-row items-center justify-between p-0 mb-2">
-                    <CardTitle className="text-sm font-headline flex items-center gap-2"><User className="w-4 h-4"/>User Profile</CardTitle>
-                    <Button variant="link" className="text-xs h-auto p-0 text-primary" onClick={onProfileSwitchClick}>Switch / Manage</Button>
+                <CardHeader className="p-0 mb-3">
+                    <CardTitle className="text-sm font-headline flex items-center gap-2">Idle Drain Insights</CardTitle>
+                    <CardDescription className="text-xs -mt-2">Manage features that consume power while parked.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="space-y-1">
-                        <ProfileDetail label="Name" value={state.activeProfile} />
-                        <ProfileDetail label="User ID" value={activeProfileData?.id} />
-                        <ProfileDetail label="Phone" value={activeProfileData?.phone} />
-                        <ProfileDetail label="Age" value={activeProfileData?.age} />
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="sentry-mode-toggle" className="flex items-center gap-2 text-sm"><ShieldCheck size={16}/> Sentry Mode</Label>
+                            <Switch id="sentry-mode-toggle" checked={state.sentryModeOn} onCheckedChange={onSentryModeToggle} />
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="cabin-overheat-toggle" className="flex items-center gap-2 text-sm"><ThermometerSun size={16}/> Cabin Protection</Label>
+                            <Switch id="cabin-overheat-toggle" checked={state.cabinOverheatProtectionOn} onCheckedChange={onCabinOverheatProtectionToggle} />
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="dashcam-toggle" className="flex items-center gap-2 text-sm"><Video size={16}/> Dashcam</Label>
+                            <Switch id="dashcam-toggle" checked={state.dashcamOn} onCheckedChange={onDashcamToggle} />
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -146,8 +183,14 @@ export default function OptimizationTab({ state, onProfileSwitchClick }: Optimiz
                     <CardTitle className="text-sm font-headline flex items-center gap-2"><BrainCircuit className="w-4 h-4"/>Predictive Idle Drain</CardTitle>
                     <CardDescription className="text-xs -mt-2">An energy consumption model forecasts battery loss over 8 hours based on current settings.</CardDescription>
                 </CardHeader>
-                <CardContent className="p-0 flex-grow min-h-0">
-                    <IdleDrainChart data={state.idleDrainPrediction} currentSOC={state.batterySOC} />
+                <CardContent className="p-4 pt-0 flex-grow min-h-0 flex flex-col">
+                    <div className="flex-grow min-h-0">
+                      <IdleDrainChart data={state.idleDrainPrediction} currentSOC={state.batterySOC} />
+                    </div>
+                    <div className="pt-2">
+                        <h4 className="text-xs font-semibold mb-1">Drain Contributors</h4>
+                        <DrainBreakdown breakdown={state.idleDrainPrediction?.drainBreakdown || null} />
+                    </div>
                 </CardContent>
             </Card>
 
@@ -177,3 +220,5 @@ export default function OptimizationTab({ state, onProfileSwitchClick }: Optimiz
         </div>
     );
 }
+
+    

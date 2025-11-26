@@ -2,12 +2,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { VehicleState, DriveMode, Profile, ChargingLog, SohHistoryEntry, AiState, PredictiveIdleDrainOutput, AcUsageImpactOutput, FiveDayForecast, WeatherData, GetWeatherImpactInput, GetWeatherImpactOutput } from '@/lib/types';
+import type { VehicleState, DriveMode, ChargingLog, SohHistoryEntry, AiState, PredictiveIdleDrainInput, PredictiveIdleDrainOutput, FiveDayForecast, WeatherData, GetWeatherImpactInput, GetWeatherImpactOutput } from '@/lib/types';
 import { defaultState, EV_CONSTANTS, MODE_SETTINGS, defaultAiState } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { getDrivingRecommendation, type DrivingRecommendationInput } from '@/ai/flows/adaptive-driving-recommendations';
 import { analyzeDrivingStyle, type AnalyzeDrivingStyleInput } from '@/ai/flows/driver-profiling';
-import { predictIdleDrain, type PredictiveIdleDrainInput } from '@/ai/flows/predictive-idle-drain';
+import { predictIdleDrain } from '@/ai/flows/predictive-idle-drain';
 import { monitorDriverFatigue, type DriverFatigueInput } from '@/ai/flows/driver-fatigue-monitor';
 import { getAcUsageImpact, type AcUsageImpactInput } from '@/ai/flows/ac-usage-impact-forecaster';
 import { getWeatherImpact } from '@/ai/flows/weather-impact-forecast';
@@ -53,6 +53,10 @@ export function useVehicleSimulation() {
   const toggleGoodsInBoot = useCallback(() => {
     setVehicleState(prevState => ({ ...prevState, goodsInBoot: !prevState.goodsInBoot }));
   }, []);
+
+  const toggleDashcam = useCallback(() => setVehicleState(prevState => ({ ...prevState, dashcamOn: !prevState.dashcamOn })), []);
+  const toggleSentryMode = useCallback(() => setVehicleState(prevState => ({ ...prevState, sentryModeOn: !prevState.sentryModeOn })), []);
+  const toggleCabinOverheatProtection = useCallback(() => setVehicleState(prevState => ({ ...prevState, cabinOverheatProtectionOn: !prevState.cabinOverheatProtectionOn })), []);
 
   const toggleCharging = useCallback(() => {
     setVehicleState(prevState => {
@@ -106,58 +110,6 @@ export function useVehicleSimulation() {
   }, []);
 
   const setActiveTrip = useCallback((trip: 'A' | 'B') => setVehicleState(prevState => ({...prevState, activeTrip: trip})), []);
-
-  const switchProfile = useCallback((profileName: string) => {
-    setVehicleState(prevState => {
-      if (prevState.profiles[profileName]) {
-          toast({ title: `Switched to ${profileName}'s profile.`});
-          return {
-              ...prevState,
-              activeProfile: profileName,
-              ...prevState.profiles[profileName]
-          };
-      }
-      return prevState;
-    });
-  }, [toast]);
-
-  const addProfile = useCallback((profileName: string, profileDetails: Omit<Profile, 'driveMode' | 'acTemp'>) => {
-    setVehicleState(prevState => {
-      if (profileName && !prevState.profiles[profileName]) {
-          const newProfile: Profile = {
-              ...profileDetails,
-              driveMode: 'Eco',
-              acTemp: 22,
-          };
-          toast({ title: `Profile ${profileName} added.`});
-          return { ...prevState, profiles: { ...prevState.profiles, [profileName]: newProfile } };
-      }
-      return prevState;
-    });
-  }, [toast]);
-
-  const deleteProfile = useCallback((profileName: string) => {
-    setVehicleState(prevState => {
-        if (profileName && prevState.profiles[profileName] && Object.keys(prevState.profiles).length > 1) {
-            const newProfiles = { ...prevState.profiles };
-            delete newProfiles[profileName];
-            
-            let nextProfile = prevState.activeProfile;
-            if (prevState.activeProfile === profileName) {
-                nextProfile = Object.keys(newProfiles)[0];
-            }
-            toast({ title: `Profile ${profileName} deleted.`});
-            
-            return { 
-                ...prevState, 
-                profiles: newProfiles, 
-                activeProfile: nextProfile,
-                ...newProfiles[nextProfile]
-            };
-        }
-        return prevState;
-    });
-  }, [toast]);
 
   const calculateDynamicRange = useCallback((state: VehicleState, aiState: AiState) => {
     const idealRange = state.initialRange * (state.batterySOC / 100);
@@ -390,15 +342,20 @@ export function useVehicleSimulation() {
 
   const triggerIdlePrediction = useCallback(async () => {
       const state = stateRef.current;
-      if (state.speed > 0 || state.isCharging) return;
+      if (state.speed > 0 || state.isCharging) {
+        if (state.idleDrainPrediction !== null) {
+          setVehicleState(prevState => ({ ...prevState, idleDrainPrediction: null }));
+        }
+        return;
+      };
       try {
         const drainInput: PredictiveIdleDrainInput = {
           currentBatterySOC: state.batterySOC,
-          acOn: state.acOn,
-          acTemp: state.acTemp,
           outsideTemp: state.outsideTemp,
-          passengers: state.passengers,
-          goodsInBoot: state.goodsInBoot,
+          cabinOverheatProtectionOn: state.cabinOverheatProtectionOn,
+          sentryModeOn: state.sentryModeOn,
+          dashcamOn: state.dashcamOn,
+          packCapacityKwh: state.packNominalCapacity_kWh
         };
         const drainResult = await predictIdleDrain(drainInput);
         setVehicleState(prevState => ({ ...prevState, idleDrainPrediction: drainResult }));
@@ -567,10 +524,12 @@ export function useVehicleSimulation() {
     toggleCharging,
     resetTrip,
     setActiveTrip,
-    switchProfile,
-    addProfile,
-    deleteProfile,
     setPassengers,
     toggleGoodsInBoot,
+    toggleDashcam,
+    toggleSentryMode,
+    toggleCabinOverheatProtection,
   };
 }
+
+    

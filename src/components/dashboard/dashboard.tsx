@@ -9,7 +9,6 @@ import AnalyticsTab from '@/components/dashboard/tabs/analytics-tab';
 import OptimizationTab from '@/components/dashboard/tabs/optimization-tab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import HelpModal from './help-modal';
-import ProfileModal from './profile-modal';
 import { AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { AiState, VehicleState } from '@/lib/types';
@@ -24,16 +23,15 @@ export default function Dashboard() {
     toggleCharging,
     resetTrip,
     setActiveTrip,
-    switchProfile,
-    addProfile,
-    deleteProfile,
     setPassengers,
     toggleGoodsInBoot,
+    toggleDashcam,
+    toggleSentryMode,
+    toggleCabinOverheatProtection,
   } = useVehicleSimulation();
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isHelpModalOpen, setHelpModalOpen] = useState(false);
-  const [isProfileModalOpen, setProfileModalOpen] = useState(false);
 
   const cardProps = {
     state,
@@ -83,22 +81,16 @@ export default function Dashboard() {
           <TabsContent value="optimization" className="h-full flex-grow min-h-0 data-[state=inactive]:hidden">
             <OptimizationTab
               state={state}
-              onProfileSwitchClick={() => setProfileModalOpen(true)}
-              onStabilizerToggle={() => {}}
+              onDashcamToggle={toggleDashcam}
+              onSentryModeToggle={toggleSentryMode}
+              onCabinOverheatProtectionToggle={toggleCabinOverheatProtection}
             />
           </TabsContent>
         </Tabs>
       </main>
       <HelpModal isOpen={isHelpModalOpen} onOpenChange={setHelpModalOpen} />
-      <ProfileModal
-        isOpen={isProfileModalOpen}
-        onOpenChange={setProfileModalOpen}
-        profiles={state.profiles}
-        activeProfile={state.activeProfile}
-        onSwitchProfile={switchProfile}
-        onAddProfile={addProfile}
-        onDeleteProfile={deleteProfile}
-      />
     </div>
   );
 }
+
+    

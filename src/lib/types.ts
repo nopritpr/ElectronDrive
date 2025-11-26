@@ -1,14 +1,34 @@
+
 import { z } from 'genkit';
 
-export type DriveMode = 'Eco' | 'City' | 'Sports';
+export const PredictiveIdleDrainInputSchema = z.object({
+  currentBatterySOC: z.number().describe('The current battery State of Charge (percentage).'),
+  outsideTemp: z.number().describe('The current outside temperature in Celsius.'),
+  cabinOverheatProtectionOn: z.boolean().describe('Whether cabin overheat protection is active.'),
+  sentryModeOn: z.boolean().describe('Whether sentry mode or a security system is active.'),
+  dashcamOn: z.boolean().describe('Whether a dashcam is recording while parked.'),
+  packCapacityKwh: z.number().describe('The total capacity of the battery pack in kWh.'),
+});
+export type PredictiveIdleDrainInput = z.infer<typeof PredictiveIdleDrainInputSchema>;
 
-export interface Profile {
-  driveMode: DriveMode;
-  acTemp: number;
-  id?: string;
-  phone?: string;
-  age?: number;
-}
+export const PredictiveIdleDrainOutputSchema = z.object({
+  hourlyPrediction: z.array(
+    z.object({
+      hour: z.number().describe('The hour from now (e.g., 1, 2, 3...).'),
+      soc: z.number().describe('The predicted State of Charge (SOC) at that hour.'),
+    })
+  ).length(8).describe('An array of 8 objects, each representing the predicted SOC for the next 8 hours.'),
+  drainBreakdown: z.object({
+      bms: z.number().describe('The percentage of drain attributed to the Battery Management System and base vehicle functions.'),
+      cabinProtection: z.number().describe('The percentage of drain attributed to Cabin Overheat Protection.'),
+      sentryMode: z.number().describe('The percentage of drain attributed to Sentry Mode.'),
+      dashcam: z.number().describe('The percentage of drain attributed to the Dashcam.'),
+  }).describe('A breakdown of what caused the predicted drain over the 8-hour period.')
+});
+export type PredictiveIdleDrainOutput = z.infer<typeof PredictiveIdleDrainOutputSchema>;
+
+
+export type DriveMode = 'Eco' | 'City' | 'Sports';
 
 export interface ChargingLog {
   startTime: number;
@@ -127,7 +147,6 @@ export interface VehicleState {
   odometer: number;
   tripA: number;
   tripB: number;
-
   activeTrip: 'A' | 'B';
   batterySOC: number;
   range: number;
@@ -192,19 +211,14 @@ export interface VehicleState {
   lastRangeSpeed: number;
   lastRawDynamicRange: number | null;
   isCharging: boolean;
-  profiles: Record<string, Profile>;
-  activeProfile: string;
   weather: WeatherData | null;
   weatherForecast: FiveDayForecast | null;
   rangePenalties: RangePenalties;
+  dashcamOn: boolean;
+  sentryModeOn: boolean;
+  cabinOverheatProtectionOn: boolean;
 }
 
-export interface PredictiveIdleDrainOutput {
-  hourlyPrediction: {
-    hour: number;
-    soc: number;
-  }[];
-}
 
 export interface AcUsageImpactOutput {
   rangeImpactKm: number;
