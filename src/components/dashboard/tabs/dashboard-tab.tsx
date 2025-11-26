@@ -196,11 +196,11 @@ export default function DashboardTab({
               } as React.CSSProperties}
             ></div>
             <Image
-              src="https://e7.pngegg.com/pngimages/978/928/png-clipart-red-sedan-car-door-car-seat-top-view-motor-vehicle-red-car-top-view-orange-car-seat-thumbnail.png"
+              src="https://storage.googleapis.com/studioprod-52595.appspot.com/669f06be339d628f47b9736c/66a18835d72f102521c75c80/66a1883ad72f102521c75c85_1721863226343.png"
               alt="EV Car"
               width={200}
               height={200}
-              className={cn('relative z-10 w-[128px] h-auto transition-transform duration-500 ease-out mix-blend-multiply dark:mix-blend-normal', state.speed > 1 && 'animate-car-drive')}
+              className={cn('relative z-10 w-[128px] h-auto transition-transform duration-500 ease-out', state.speed > 1 && 'animate-car-drive')}
               style={{
                 filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.4))',
               }}
