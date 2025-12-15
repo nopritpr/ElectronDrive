@@ -108,6 +108,7 @@ export const EV_CONSTANTS = {
   cityModeConsumption: 169.64, // Wh/km for 420km range
   sportsModeConsumption: 187.5, // Wh/km for 380km range
   gentleRegenBrakeRate: 0.8, // m/s^2 for one-pedal driving feel
+  CAR_IMAGE_URL: '/Folder/image-removebg-preview (8).png',
 };
 
 export const MODE_SETTINGS: Record<

@@ -9,7 +9,7 @@ import Image from "next/image";
 import SpeedGauge from "../charts/speed-gauge";
 import { cn } from "@/lib/utils";
 import type { VehicleState, DriveMode, WeatherData, FiveDayForecast, AiState } from "@/lib/types";
-import { MODE_SETTINGS } from "@/lib/constants";
+import { MODE_SETTINGS, EV_CONSTANTS } from "@/lib/constants";
 import NavigationMap from '../navigation-map';
 import Weather from '../weather';
 import { useToast } from "@/hooks/use-toast";
@@ -196,7 +196,7 @@ export default function DashboardTab({
               } as React.CSSProperties}
             ></div>
             <Image
-              src="https://storage.googleapis.com/studioprod-52595.appspot.com/669f06be339d628f47b9736c/66a18835d72f102521c75c80/66a1883ad72f102521c75c85_1721863226343.png"
+              src={EV_CONSTANTS.CAR_IMAGE_URL}
               alt="EV Car"
               width={200}
               height={200}
