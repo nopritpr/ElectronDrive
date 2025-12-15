@@ -461,7 +461,7 @@ export function useVehicleSimulation() {
   }, []);
 
   const fetchWeatherData = useCallback(async (lat: number, lon: number) => {
-    const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+    const apiKey = "c9d046988d6c32c657459864faea2cfd";
     
     if (!apiKey || apiKey === "YOUR_API_KEY_HERE") {
       console.warn("OpenWeatherMap API key is missing. Weather data will not be fetched.");
