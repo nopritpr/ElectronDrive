@@ -198,9 +198,9 @@ export default function DashboardTab({
             <Image
               src={EV_CONSTANTS.CAR_IMAGE_URL}
               alt="EV Car"
-              width={200}
-              height={200}
-              className={cn('relative z-10 w-[150px] h-auto transition-transform duration-500 ease-out', state.speed > 1 && 'animate-car-drive')}
+              width={300}
+              height={300}
+              className={cn('relative z-10 w-[200px] h-auto transition-transform duration-500 ease-out', state.speed > 1 && 'animate-car-drive')}
               style={{
                 filter: 'drop-shadow(0 10px 8px rgba(0,0,0,0.4))',
               }}
