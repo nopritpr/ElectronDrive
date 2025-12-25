@@ -246,50 +246,6 @@ export function useVehicleSimulation() {
 
   const setActiveTrip = useCallback((trip: 'A' | 'B') => setVehicleState(prevState => ({...prevState, activeTrip: trip})), []);
 
-  const calculateDynamicRange = useCallback((state: VehicleState & AiState) => {
-    const { batterySOC, driveMode } = state;
-    
-    const modeMultiplier = MODE_SETTINGS[driveMode].rangeMultiplier;
-    const baseRange = state.initialRange * modeMultiplier;
-    
-    let acPenalty = 0;
-    if (state.acOn) {
-        const acPowerDraw = EV_CONSTANTS.acPower_kW * (Math.min(1, Math.abs(state.acTemp - state.outsideTemp) / 10));
-        const whPerKm = EV_CONSTANTS.baseConsumption; // Use base consumption for stable penalty
-        const acWhPerKm = (acPowerDraw * 1000) / (state.speed > 0 ? state.speed : 50); // Assume 50km/h if idle
-        acPenalty = (acWhPerKm / whPerKm) * baseRange * (batterySOC / 100);
-    }
-
-    const passengerPenalty = (state.passengers - 1) * 0.015 * baseRange * (batterySOC / 100);
-    const goodsPenalty = state.goodsInBoot ? 0.03 * baseRange * (batterySOC / 100) : 0;
-    const loadPenalty = passengerPenalty + goodsPenalty;
-
-    let tempPenalty = 0;
-    const outsideTemp = state.outsideTemp || 22;
-    if (outsideTemp < 10) {
-        tempPenalty = (10 - outsideTemp) * 0.01 * baseRange * (batterySOC / 100);
-    } else if (outsideTemp > 25) {
-        tempPenalty = (outsideTemp - 25) * 0.007 * baseRange * (batterySOC / 100);
-    }
-    
-    const analyticsDriveModePenalty = (1 - modeMultiplier) * (state.initialRange * (batterySOC / 100));
-
-    const finalPenalties = {
-      ac: acPenalty,
-      load: loadPenalty,
-      temp: tempPenalty,
-      driveMode: analyticsDriveModePenalty,
-    };
-    
-    const currentIdealRange = baseRange * (batterySOC / 100);
-    const predictedDynamicRange = currentIdealRange - acPenalty - loadPenalty - tempPenalty;
-    
-    // Clamp the range to be non-negative
-    const finalRange = Math.max(0, predictedDynamicRange);
-
-    return { range: finalRange, predictedDynamicRange: finalRange, rangePenalties: finalPenalties };
-  }, []);
-
   const updateVehicleState = useCallback((prevState: VehicleState & AiState): VehicleState & AiState => {
     const now = Date.now();
     const timeDelta = (now - prevState.lastUpdate) / 1000;
@@ -335,10 +291,16 @@ export function useVehicleSimulation() {
     let currentAcceleration = prevState.physics.acceleration;
 
     let targetAcceleration = 0;
-    if (keys.ArrowUp) targetAcceleration = modeSettings.accelRate;
-    else if (keys.ArrowDown) targetAcceleration = -modeSettings.brakeRate;
-    else if (keys.r) targetAcceleration = -modeSettings.strongRegenBrakeRate;
-    else if (prevState.speed > 0) targetAcceleration = -EV_CONSTANTS.gentleRegenBrakeRate;
+    if (keys.ArrowUp) {
+      targetAcceleration = modeSettings.accelRate;
+    } else if (keys.ArrowDown) {
+      targetAcceleration = -modeSettings.brakeRate;
+    } else if (keys.r) {
+      targetAcceleration = -modeSettings.strongRegenBrakeRate;
+    } else if (prevState.speed > 0.1) { // Only apply regen if moving
+      targetAcceleration = -EV_CONSTANTS.gentleRegenBrakeRate;
+    }
+
 
     currentAcceleration += (targetAcceleration - currentAcceleration) * prevState.physics.inertiaFactor;
     
@@ -381,13 +343,13 @@ export function useVehicleSimulation() {
     
     const newOdometer = prevState.odometer + distanceTraveledKm;
     
-    const currentWhPerKm = smoothedPower > 0 && newSpeedKmh > 0 ? (smoothedPower * 1000) / newSpeedKmh : prevState.recentWhPerKm;
+    const currentWhPerKm = smoothedPower > 0 && newSpeedKmh > 1 ? (smoothedPower * 1000) / newSpeedKmh : 0;
     
     let newEcoScore = prevState.ecoScore;
     if (newSpeedKmh > 1 && !prevState.isCharging) {
       const accelPenalty = Math.max(0, currentAcceleration - 1.5) * 2.0;
       // Use a stable base for efficiency penalty calculation
-      const deviation = currentWhPerKm - EV_CONSTANTS.baseConsumption;
+      const deviation = currentWhPerKm > 0 ? currentWhPerKm - EV_CONSTANTS.baseConsumption : 0;
       const efficiencyPenalty = Math.max(0, deviation / EV_CONSTANTS.baseConsumption) * 25;
       const regenBonus = smoothedPower < 0 ? Math.abs(smoothedPower / 50) : 0;
       const currentScore = 100 - accelPenalty - efficiencyPenalty + regenBonus;
@@ -397,7 +359,9 @@ export function useVehicleSimulation() {
     const newRecentWhPerKmWindow = [currentWhPerKm > 0 ? currentWhPerKm : EV_CONSTANTS.baseConsumption, ...prevState.recentWhPerKmWindow].slice(0, 50);
     const newRecentWhPerKm = newRecentWhPerKmWindow.reduce((a, b) => a + b) / newRecentWhPerKmWindow.length;
     
-    const rangeUpdates = calculateDynamicRange({ ...prevState, batterySOC: newSOC, recentWhPerKm: newRecentWhPerKm, speed: newSpeedKmh });
+    const newBaseRange = prevState.initialRange * MODE_SETTINGS[prevState.driveMode].rangeMultiplier;
+
+    const finalRange = Math.max(0, newBaseRange * (newSOC / 100));
 
     const newVehicleState: Partial<VehicleState & AiState> = {
       speed: newSpeedKmh,
@@ -406,8 +370,7 @@ export function useVehicleSimulation() {
       tripB: prevState.activeTrip === 'B' ? prevState.tripB + distanceTraveledKm : prevState.tripB,
       power: smoothedPower,
       batterySOC: newSOC,
-      recentWhPerKm: newRecentWhPerKm,
-      recentWhPerKmWindow: newRecentWhPerKmWindow,
+      recentWhPerKm,
       lastUpdate: now,
       displaySpeed: prevState.displaySpeed + (newSpeedKmh - prevState.displaySpeed) * 0.1,
       powerHistory: newPowerHistory,
@@ -416,9 +379,8 @@ export function useVehicleSimulation() {
       equivalentFullCycles: prevState.equivalentFullCycles + Math.abs((prevState.batterySOC - newSOC) / 100),
       speedHistory: [newSpeedKmh, ...prevState.speedHistory].slice(0, 10),
       accelerationHistory: [currentAcceleration, ...prevState.accelerationHistory].slice(0, 10),
-      range: rangeUpdates.range,
-      predictedDynamicRange: rangeUpdates.predictedDynamicRange,
-      rangePenalties: rangeUpdates.rangePenalties,
+      range: finalRange,
+      predictedDynamicRange: finalRange, // Keep this in sync for now
       physics: {
         ...prevState.physics,
         acceleration: currentAcceleration
@@ -437,7 +399,7 @@ export function useVehicleSimulation() {
     }
     
     return {...prevState, ...newVehicleState};
-  }, [calculateDynamicRange]);
+  }, []);
 
 
   // Keyboard controls
