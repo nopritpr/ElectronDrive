@@ -289,16 +289,18 @@ export function useVehicleSimulation() {
     const modeSettings = MODE_SETTINGS[prevState.driveMode];
     
     let currentAcceleration = prevState.physics.acceleration;
-
     let targetAcceleration = 0;
+
     if (keys.ArrowUp) {
       targetAcceleration = modeSettings.accelRate;
-    } else if (keys.ArrowDown) {
-      targetAcceleration = -modeSettings.brakeRate;
-    } else if (keys.r) {
-      targetAcceleration = -modeSettings.strongRegenBrakeRate;
-    } else if (prevState.speed > 0.1) { // Only apply regen if moving
-      targetAcceleration = -EV_CONSTANTS.gentleRegenBrakeRate;
+    } else {
+      if (keys.ArrowDown) {
+        targetAcceleration = -modeSettings.brakeRate;
+      } else if (keys.r) {
+        targetAcceleration = -modeSettings.strongRegenBrakeRate;
+      } else if (prevState.speed > 0.1) {
+        targetAcceleration = -EV_CONSTANTS.gentleRegenBrakeRate;
+      }
     }
 
 
@@ -357,7 +359,7 @@ export function useVehicleSimulation() {
     }
     
     const newRecentWhPerKmWindow = [currentWhPerKm > 0 ? currentWhPerKm : EV_CONSTANTS.baseConsumption, ...prevState.recentWhPerKmWindow].slice(0, 50);
-    const newRecentWhPerKm = newRecentWhPerKmWindow.reduce((a, b) => a + b) / newRecentWhPerKmWindow.length;
+    const recentWhPerKm = newRecentWhPerKmWindow.reduce((a, b) => a + b) / newRecentWhPerKmWindow.length;
     
     const newBaseRange = prevState.initialRange * MODE_SETTINGS[prevState.driveMode].rangeMultiplier;
 
@@ -370,7 +372,7 @@ export function useVehicleSimulation() {
       tripB: prevState.activeTrip === 'B' ? prevState.tripB + distanceTraveledKm : prevState.tripB,
       power: smoothedPower,
       batterySOC: newSOC,
-      recentWhPerKm,
+      recentWhPerKm: recentWhPerKm,
       lastUpdate: now,
       displaySpeed: prevState.displaySpeed + (newSpeedKmh - prevState.displaySpeed) * 0.1,
       powerHistory: newPowerHistory,
