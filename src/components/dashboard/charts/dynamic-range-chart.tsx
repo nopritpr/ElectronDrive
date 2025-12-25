@@ -9,6 +9,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import type { VehicleState } from '@/lib/types';
+import { EV_CONSTANTS } from '@/lib/constants';
 
 interface DynamicRangeChartProps {
   state: VehicleState;
@@ -17,7 +18,7 @@ interface DynamicRangeChartProps {
 export default function DynamicRangeChart({ state }: DynamicRangeChartProps) {
     const idealRange = state.initialRange * (state.batterySOC / 100);
     const { ac: acPenalty, load: loadPenalty, temp: tempPenalty, driveMode: driveModePenalty } = state.rangePenalties;
-    const predictedRange = idealRange - acPenalty - loadPenalty - tempPenalty - driveModePenalty;
+    const predictedRange = Math.max(0, idealRange - acPenalty - loadPenalty - tempPenalty - driveModePenalty);
     
     const data = [
         { name: 'Ideal', value: idealRange, label: `${Math.round(idealRange)} km` },
