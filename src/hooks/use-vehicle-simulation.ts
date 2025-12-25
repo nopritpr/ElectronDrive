@@ -293,14 +293,12 @@ export function useVehicleSimulation() {
 
     if (keys.ArrowUp) {
       targetAcceleration = modeSettings.accelRate;
-    } else {
-      if (keys.ArrowDown) {
-        targetAcceleration = -modeSettings.brakeRate;
-      } else if (keys.r) {
-        targetAcceleration = -modeSettings.strongRegenBrakeRate;
-      } else if (prevState.speed > 0.1) {
-        targetAcceleration = -EV_CONSTANTS.gentleRegenBrakeRate;
-      }
+    } else if (keys.ArrowDown) {
+      targetAcceleration = -modeSettings.brakeRate;
+    } else if (keys.r) {
+      targetAcceleration = -modeSettings.strongRegenBrakeRate;
+    } else if (prevState.speed > 0.1) {
+      targetAcceleration = -EV_CONSTANTS.gentleRegenBrakeRate;
     }
 
 
@@ -317,9 +315,10 @@ export function useVehicleSimulation() {
     const distanceTraveledKm = newSpeedKmh * (timeDelta / 3600);
     
     let instantPower: number;
-    if (newSpeedKmh < 1.0 && targetAcceleration >= 0) {
-      // At very low speeds, use a simple power model to prevent instability
-      instantPower = targetAcceleration > 0 ? 3.0 : 0.5; // Base power for starting off
+    if (newSpeedKmh < 1.0) {
+      // At very low speeds, use a simple, stable power model to prevent instability and division by zero.
+      // This represents a baseline power draw for starting the vehicle from a stop.
+      instantPower = currentAcceleration > 0 ? 3.0 : 0.5; 
     } else {
       const fAero = EV_CONSTANTS.dragCoeff * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.airDensity * Math.pow(speedMs, 2) * 0.5;
       const fRoll = EV_CONSTANTS.rollingResistanceCoeff * EV_CONSTANTS.mass_kg * EV_CONSTANTS.gravity;
@@ -665,4 +664,5 @@ export function useVehicleSimulation() {
   };
 }
 
+    
     
