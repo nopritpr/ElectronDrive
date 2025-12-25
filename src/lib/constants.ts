@@ -78,6 +78,13 @@ export const defaultState: Omit<VehicleState, 'sohHistory'> = {
   dashcamOn: false,
   sentryModeOn: false,
   cabinOverheatProtectionOn: false,
+  physics: {
+    acceleration: 0,
+    inertiaFactor: 0.1,
+    brakingApplied: false,
+    regenActive: false,
+    regenPower: 0,
+  },
 };
 
 export const defaultAiState: AiState = {

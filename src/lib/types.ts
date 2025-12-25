@@ -217,6 +217,7 @@ export interface VehicleState {
   dashcamOn: boolean;
   sentryModeOn: boolean;
   cabinOverheatProtectionOn: boolean;
+  physics: VehiclePhysics;
 }
 
 

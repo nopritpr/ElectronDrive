@@ -251,43 +251,42 @@ export function useVehicleSimulation() {
     
     // The other penalties are not used for the main range display anymore,
     // but we can calculate them for the analytics chart.
-    const baseRangeForPenalties = state.initialRange * (batterySOC / 100);
+    const modeMultiplier = MODE_SETTINGS[driveMode].rangeMultiplier;
+    const baseRange = state.initialRange * modeMultiplier * (batterySOC / 100);
 
     let acPenalty = 0;
     if (state.acOn) {
         const acPowerDraw = EV_CONSTANTS.acPower_kW * (Math.min(1, Math.abs(state.acTemp - state.outsideTemp) / 10));
         const whPerKm = state.recentWhPerKm > 0 ? state.recentWhPerKm : EV_CONSTANTS.baseConsumption;
         const acWhPerKm = (acPowerDraw * 1000) / (state.speed > 0 ? state.speed : 50); // Assume 50km/h if idle
-        acPenalty = (acWhPerKm / whPerKm) * baseRangeForPenalties;
+        acPenalty = (acWhPerKm / whPerKm) * baseRange;
     }
 
-    const passengerPenalty = (state.passengers - 1) * 0.015 * baseRangeForPenalties;
-    const goodsPenalty = state.goodsInBoot ? 0.03 * baseRangeForPenalties : 0;
+    const passengerPenalty = (state.passengers - 1) * 0.015 * baseRange;
+    const goodsPenalty = state.goodsInBoot ? 0.03 * baseRange : 0;
     const loadPenalty = passengerPenalty + goodsPenalty;
 
     let tempPenalty = 0;
     const outsideTemp = state.outsideTemp || 22;
     if (outsideTemp < 10) {
-        tempPenalty = (10 - outsideTemp) * 0.01 * baseRangeForPenalties;
+        tempPenalty = (10 - outsideTemp) * 0.01 * baseRange;
     } else if (outsideTemp > 25) {
-        tempPenalty = (outsideTemp - 25) * 0.007 * baseRangeForPenalties;
+        tempPenalty = (outsideTemp - 25) * 0.007 * baseRange;
     }
     
-    const modeMultiplier = MODE_SETTINGS[driveMode].rangeMultiplier;
-    const driveModePenalty = (1 - modeMultiplier) * baseRangeForPenalties;
+    // In analytics, driveMode penalty is relative to ideal range
+    const analyticsDriveModePenalty = (1 - modeMultiplier) * (state.initialRange * (batterySOC / 100));
 
     const finalPenalties = {
       ac: acPenalty,
       load: loadPenalty,
       temp: tempPenalty,
-      driveMode: driveModePenalty,
+      driveMode: analyticsDriveModePenalty,
     };
     
-    const predictedDynamicRange = baseRangeForPenalties - acPenalty - loadPenalty - tempPenalty - driveModePenalty;
+    const predictedDynamicRange = baseRange - acPenalty - loadPenalty - tempPenalty;
     
-    const smoothedRange = state.range * 0.9 + predictedDynamicRange * 0.1;
-
-    return { range: smoothedRange, predictedDynamicRange, rangePenalties: finalPenalties };
+    return { range: predictedDynamicRange, predictedDynamicRange, rangePenalties: finalPenalties };
   }, []);
 
   const updateVehicleState = useCallback((prevState: VehicleState & AiState): VehicleState & AiState => {
@@ -331,7 +330,7 @@ export function useVehicleSimulation() {
 
     const modeSettings = MODE_SETTINGS[prevState.driveMode];
     
-    let currentAcceleration = prevState.accelerationHistory[0] || 0;
+    let currentAcceleration = prevState.physics.acceleration;
 
     let targetAcceleration = 0;
     if (keys.ArrowUp) targetAcceleration = modeSettings.accelRate;
@@ -339,7 +338,7 @@ export function useVehicleSimulation() {
     else if (keys.r) targetAcceleration = -modeSettings.strongRegenBrakeRate;
     else if (prevState.speed > 0) targetAcceleration = -EV_CONSTANTS.gentleRegenBrakeRate;
 
-    currentAcceleration += (targetAcceleration - currentAcceleration) * 0.1;
+    currentAcceleration += (targetAcceleration - currentAcceleration) * prevState.physics.inertiaFactor;
     
     let newSpeedKmh = prevState.speed + currentAcceleration * timeDelta * 3.6;
     newSpeedKmh = Math.max(0, newSpeedKmh);
@@ -374,11 +373,7 @@ export function useVehicleSimulation() {
     const energyUsedKwh = smoothedPower * (timeDelta / 3600);
     const socDelta = (energyUsedKwh / prevState.packNominalCapacity_kWh) * 100;
     
-    if (socDelta > 0) {
-      newSOC -= socDelta;
-    } else {
-      newSOC -= socDelta; // Subtracting a negative is adding
-    }
+    newSOC -= socDelta;
     
     newSOC = Math.max(0, Math.min(100, newSOC));
     
@@ -421,6 +416,10 @@ export function useVehicleSimulation() {
       range: rangeUpdates.predictedDynamicRange,
       predictedDynamicRange: rangeUpdates.predictedDynamicRange,
       rangePenalties: rangeUpdates.rangePenalties,
+      physics: {
+        ...prevState.physics,
+        acceleration: currentAcceleration
+      }
     };
     
     if (newOdometer > (prevState.sohHistory[prevState.sohHistory.length - 1]?.odometer || 0) + 500) {
