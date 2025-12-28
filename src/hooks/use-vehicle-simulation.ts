@@ -195,42 +195,44 @@ export function useVehicleSimulation() {
   }, [triggerIdlePrediction]);
 
   const toggleCharging = useCallback(() => {
-    if (!firestore) return;
-    const now = Date.now();
-    const state = stateRef.current;
-    const isNowCharging = !state.isCharging;
-
-    if (isNowCharging) {
-      if (state.speed > 0) return;
-      setVehicleState(prevState => ({
-        ...prevState,
-        isCharging: true,
-        lastChargeLog: {
-          startTime: now,
-          startSOC: prevState.batterySOC,
-        },
-      }));
-    } else {
-      const { lastChargeLog, batterySOC } = state;
-      if (lastChargeLog) {
-        const energyAdded = (batterySOC - lastChargeLog.startSOC) / 100 * state.packNominalCapacity_kWh;
-        const newLog = {
-          startTime: lastChargeLog.startTime,
-          endTime: now,
-          startSOC: lastChargeLog.startSOC,
-          endSOC: batterySOC,
-          energyAdded: Math.max(0, energyAdded),
+    setVehicleState(prevState => {
+      if (!firestore) return prevState;
+      const now = Date.now();
+      const isNowCharging = !prevState.isCharging;
+  
+      if (isNowCharging) {
+        if (prevState.speed > 0) return prevState;
+        return {
+          ...prevState,
+          isCharging: true,
+          lastChargeLog: {
+            startTime: now,
+            startSOC: prevState.batterySOC,
+          },
         };
-        addDoc(collection(firestore, 'charging_logs'), newLog)
-          .catch(error => console.error("Error adding charging log:", error));
+      } else {
+        const { lastChargeLog, batterySOC } = prevState;
+        if (lastChargeLog) {
+          const energyAdded = (batterySOC - lastChargeLog.startSOC) / 100 * prevState.packNominalCapacity_kWh;
+          const newLog = {
+            startTime: lastChargeLog.startTime,
+            endTime: now,
+            startSOC: lastChargeLog.startSOC,
+            endSOC: batterySOC,
+            energyAdded: Math.max(0, energyAdded),
+          };
+          addDoc(collection(firestore, 'charging_logs'), newLog)
+            .catch(error => console.error("Error adding charging log:", error));
+        }
+        return {
+          ...prevState,
+          isCharging: false,
+          lastChargeLog: undefined,
+        };
       }
-      setVehicleState(prevState => ({
-        ...prevState,
-        isCharging: false,
-        lastChargeLog: undefined,
-      }));
-    }
+    });
   }, [firestore]);
+  
 
   const resetTrip = useCallback(() => {
     setVehicleState(prevState => {
@@ -348,6 +350,24 @@ export function useVehicleSimulation() {
 
     const predictedRange = Math.max(0, baseIdealRange - acPenalty - loadPenalty - tempPenalty - driveModePenalty);
     
+    let currentWhPerKm = prevState.recentWhPerKm;
+    if (newSpeedKmh > 1 && isFinite(smoothedPower) && smoothedPower > 0) {
+      currentWhPerKm = (smoothedPower * 1000) / newSpeedKmh;
+    }
+
+    const newRecentWhPerKmWindow = [currentWhPerKm, ...prevState.recentWhPerKmWindow].slice(0, 50);
+    const recentWhPerKm = newRecentWhPerKmWindow.reduce((a,b) => a+b, 0) / newRecentWhPerKmWindow.length;
+    
+    let newEcoScore = prevState.ecoScore;
+    if (newSpeedKmh > 1 && !prevState.isCharging) {
+      const accelPenalty = Math.max(0, currentAcceleration - 1.5) * 2.0;
+      const deviation = recentWhPerKm > 0 ? recentWhPerKm - EV_CONSTANTS.baseConsumption : 0;
+      const efficiencyPenalty = Math.max(0, deviation / EV_CONSTANTS.baseConsumption) * 25;
+      const regenBonus = smoothedPower < 0 ? Math.abs(smoothedPower / 50) : 0;
+      const currentScore = 100 - accelPenalty - efficiencyPenalty + regenBonus;
+      newEcoScore = prevState.ecoScore * 0.99 + Math.max(0, Math.min(100, currentScore)) * 0.01;
+    }
+    
     const newVehicleState: Partial<VehicleState & AiState> = {
       speed: newSpeedKmh,
       odometer: newOdometer,
@@ -370,31 +390,14 @@ export function useVehicleSimulation() {
         temp: tempPenalty,
         driveMode: driveModePenalty,
       },
+      recentWhPerKm: recentWhPerKm,
+      recentWhPerKmWindow: newRecentWhPerKmWindow,
+      ecoScore: newEcoScore,
       physics: {
         ...prevState.physics,
         acceleration: currentAcceleration
       }
     };
-    
-    let currentWhPerKm = prevState.recentWhPerKm;
-    if (newSpeedKmh > 1 && isFinite(smoothedPower) && smoothedPower > 0) {
-      currentWhPerKm = (smoothedPower * 1000) / newSpeedKmh;
-    }
-
-    const newRecentWhPerKmWindow = [currentWhPerKm, ...prevState.recentWhPerKmWindow].slice(0, 50);
-    newVehicleState.recentWhPerKmWindow = newRecentWhPerKmWindow;
-    newVehicleState.recentWhPerKm = newRecentWhPerKmWindow.reduce((a,b) => a+b, 0) / newRecentWhPerKmWindow.length;
-    
-    let newEcoScore = prevState.ecoScore;
-    if (newSpeedKmh > 1 && !prevState.isCharging) {
-      const accelPenalty = Math.max(0, currentAcceleration - 1.5) * 2.0;
-      const deviation = newVehicleState.recentWhPerKm > 0 ? newVehicleState.recentWhPerKm - EV_CONSTANTS.baseConsumption : 0;
-      const efficiencyPenalty = Math.max(0, deviation / EV_CONSTANTS.baseConsumption) * 25;
-      const regenBonus = smoothedPower < 0 ? Math.abs(smoothedPower / 50) : 0;
-      const currentScore = 100 - accelPenalty - efficiencyPenalty + regenBonus;
-      newEcoScore = prevState.ecoScore * 0.99 + Math.max(0, Math.min(100, currentScore)) * 0.01;
-    }
-    newVehicleState.ecoScore = newEcoScore;
     
     if (newOdometer > (prevState.sohHistory[prevState.sohHistory.length - 1]?.odometer || 0) + 500) {
         const newSohEntry: SohHistoryEntry = {
@@ -633,5 +636,7 @@ export function useVehicleSimulation() {
     toggleCabinOverheatProtection,
   };
 }
+
+    
 
     
