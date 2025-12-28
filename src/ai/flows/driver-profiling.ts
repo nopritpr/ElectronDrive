@@ -37,6 +37,7 @@ const prompt = ai.definePrompt({
   output: {schema: AnalyzeDrivingStyleOutputSchema},
   config: {
     model: googleAI.model('gemini-pro'),
+    temperature: 0.2,
   },
   prompt: `You are an expert driving coach who analyzes driving data and provides personalized recommendations to improve driving safety and efficiency.
 

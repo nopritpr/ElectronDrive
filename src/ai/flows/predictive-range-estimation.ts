@@ -58,6 +58,7 @@ const prompt = ai.definePrompt({
   output: {schema: PredictiveRangeOutputSchema},
   config: {
     model: googleAI.model('gemini-pro'),
+    temperature: 0.2,
   },
   prompt: `You are an expert AI system that predicts the remaining range of an electric vehicle based on various factors. Your goal is to provide a more accurate range estimation than the standard one.
 
