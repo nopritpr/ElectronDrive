@@ -292,17 +292,32 @@ export function useVehicleSimulation() {
     }
 
     const distanceTraveledKm = newSpeedKmh * (timeDelta / 3600);
+    const speedMps = newSpeedKmh / 3.6;
 
+    // --- Start of New Physics-Based Power Calculation ---
     let powerKw: number;
-    const basePowerAtRefSpeed = (EV_CONSTANTS.baseConsumption * 80) / 1000;
-    
-    if (currentAcceleration > 0 && newSpeedKmh > 0) { // Accelerating
-        powerKw = basePowerAtRefSpeed * (1 + currentAcceleration / modeSettings.accelRate) * modeSettings.powerMultiplier;
-    } else if (currentAcceleration < 0 && newSpeedKmh > 0) { // Braking/Regen
-        powerKw = currentAcceleration * EV_CONSTANTS.regenEfficiency * 2;
-    } else { // Coasting or idle
-        powerKw = 0.5; // Small idle power draw
+
+    if (newSpeedKmh < 1) {
+        // At very low speeds, use a simple base power draw to avoid instability
+        powerKw = currentAcceleration > 0 ? 3.0 : 0.5; // Small power draw to start, or idle
+    } else {
+        // Physics Forces
+        const fAero = 0.5 * EV_CONSTANTS.airDensity * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.dragCoeff * Math.pow(speedMps, 2);
+        const fRoll = EV_CONSTANTS.rollingResistanceCoeff * EV_CONSTANTS.mass_kg * EV_CONSTANTS.gravity;
+        const fInertia = EV_CONSTANTS.mass_kg * currentAcceleration;
+
+        const totalTractiveForce = fAero + fRoll + fInertia;
+        const tractivePowerWatts = totalTractiveForce * speedMps;
+
+        if (tractivePowerWatts > 0) {
+            // Motive power - factor in drivetrain efficiency losses
+            powerKw = tractivePowerWatts / (1000 * EV_CONSTANTS.drivetrainEfficiency);
+        } else {
+            // Regenerative braking - factor in regen efficiency
+            powerKw = tractivePowerWatts * EV_CONSTANTS.regenEfficiency / 1000;
+        }
     }
+    // --- End of New Physics-Based Power Calculation ---
     
     if (prevState.acOn) {
         powerKw += EV_CONSTANTS.acPower_kW * (Math.min(1, Math.abs(prevState.acTemp - prevState.outsideTemp) / 10));
@@ -320,9 +335,8 @@ export function useVehicleSimulation() {
     const newOdometer = prevState.odometer + distanceTraveledKm;
     
     const baseIdealRange = prevState.initialRange * (newSOC / 100);
-    const driveModeMultiplier = MODE_SETTINGS[prevState.driveMode].rangeMultiplier;
     
-    const driveModePenalty = (prevState.initialRange * (newSOC/100)) * (1 - driveModeMultiplier);
+    const driveModePenalty = (prevState.initialRange * (newSOC/100)) * (1 - MODE_SETTINGS[prevState.driveMode].rangeMultiplier);
 
     let acPenalty = 0;
     if (prevState.acOn) {
@@ -341,7 +355,7 @@ export function useVehicleSimulation() {
     const goodsPenalty = prevState.goodsInBoot ? 0.03 * baseIdealRange : 0;
     const loadPenalty = passengerPenalty + goodsPenalty;
 
-    const predictedRange = Math.max(0, (baseIdealRange * driveModeMultiplier) - acPenalty - loadPenalty - tempPenalty);
+    const predictedRange = Math.max(0, baseIdealRange - acPenalty - loadPenalty - tempPenalty - driveModePenalty);
     
     const newVehicleState: Partial<VehicleState & AiState> = {
       speed: newSpeedKmh,
