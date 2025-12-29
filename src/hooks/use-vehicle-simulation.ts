@@ -293,10 +293,9 @@ export function useVehicleSimulation() {
 
     let powerKw: number;
 
-    if (newSpeedKmh < 1 && currentAcceleration > 0) {
-      powerKw = 2.5; 
-    } else if (newSpeedKmh < 1) {
-      powerKw = 0; 
+    if (newSpeedKmh < 1) {
+        // At very low speeds, use a simple, stable power model to prevent instability.
+        powerKw = currentAcceleration > 0 ? 2.5 * modeSettings.powerMultiplier : 0;
     } else {
         const fAero = 0.5 * EV_CONSTANTS.airDensity * EV_CONSTANTS.frontalArea_m2 * EV_CONSTANTS.dragCoeff * Math.pow(speedMps, 2);
         const fRoll = EV_CONSTANTS.rollingResistanceCoeff * EV_CONSTANTS.mass_kg * EV_CONSTANTS.gravity;
@@ -308,6 +307,7 @@ export function useVehicleSimulation() {
         if (tractivePowerWatts >= 0) {
             powerKw = tractivePowerWatts / (1000 * EV_CONSTANTS.drivetrainEfficiency);
         } else {
+            // Regenerative braking: power is negative (energy is gained)
             powerKw = (tractivePowerWatts * EV_CONSTANTS.regenEfficiency) / 1000;
         }
     }
@@ -449,6 +449,36 @@ export function useVehicleSimulation() {
     };
   }, [toggleCharging, setDriveMode, toggleAC]);
 
+  const triggerDrivingCoach = useCallback(async () => {
+    const state = stateRef.current;
+    if (state.speed < 10) {
+      return;
+    }
+
+    try {
+      const input: DrivingRecommendationInput = {
+        drivingStyle: state.drivingStyle,
+        predictedRange: state.predictedDynamicRange,
+        batterySOC: state.batterySOC,
+        acUsage: state.acOn,
+        acTemp: state.acTemp,
+        passengers: state.passengers,
+        driveMode: state.driveMode,
+        driveModeHistory: state.driveModeHistory,
+        accelerationHistory: state.accelerationHistory,
+        outsideTemperature: state.outsideTemp,
+      };
+      const result = await getDrivingRecommendation(input);
+      setVehicleState(prevState => ({
+        ...prevState,
+        drivingRecommendation: result.recommendation,
+        drivingRecommendationJustification: result.justification,
+      }));
+    } catch (error) {
+      console.error("Error getting driving recommendation:", error);
+    }
+  }, []);
+
   const triggerAcUsageImpact = useCallback(async () => {
       const state = stateRef.current;
       try {
@@ -566,11 +596,12 @@ export function useVehicleSimulation() {
 
   // AI and external data fetching timers
   useEffect(() => {
-    const aiInterval = setInterval(() => {
+    const acInterval = setInterval(() => {
       triggerAcUsageImpact();
       triggerIdlePrediction();
     }, 5000);
 
+    const coachInterval = setInterval(triggerDrivingCoach, 15000);
     const fatigueInterval = setInterval(triggerFatigueCheck, 2000);
 
     const weatherInterval = setInterval(() => {
@@ -581,11 +612,12 @@ export function useVehicleSimulation() {
     }, 300000);
 
     return () => {
-        clearInterval(aiInterval);
+        clearInterval(acInterval);
+        clearInterval(coachInterval);
         clearInterval(fatigueInterval);
         clearInterval(weatherInterval);
     };
-  }, [triggerAcUsageImpact, triggerIdlePrediction, triggerFatigueCheck, fetchWeatherData]);
+  }, [triggerAcUsageImpact, triggerIdlePrediction, triggerFatigueCheck, fetchWeatherData, triggerDrivingCoach]);
 
   // Initial Geolocation and Weather Fetch
   useEffect(() => {
@@ -636,7 +668,5 @@ export function useVehicleSimulation() {
     toggleCabinOverheatProtection,
   };
 }
-
-    
 
     

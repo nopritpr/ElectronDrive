@@ -14,17 +14,11 @@ import NavigationMap from '../navigation-map';
 import Weather from '../weather';
 import { useToast } from "@/hooks/use-toast";
 import React, { useState, useEffect } from 'react';
-import { Users, Package, HelpCircle } from 'lucide-react';
+import { Users, Package, Lightbulb } from 'lucide-react';
 import { Label } from "@/components/ui/label";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
 interface DashboardTabProps {
-  state: VehicleState;
+  state: VehicleState & AiState;
   setVehicleState: React.Dispatch<React.SetStateAction<Partial<VehicleState & AiState>>>;
   setDriveMode: (mode: DriveMode) => void;
   toggleAC: () => void;
@@ -35,6 +29,16 @@ interface DashboardTabProps {
   setPassengers: (count: number) => void;
   toggleGoodsInBoot: () => void;
 }
+
+const AICoachingCard = ({ recommendation, justification }: { recommendation: string, justification: string | null }) => (
+  <Card className="p-4 flex flex-col">
+    <h3 className="font-semibold mb-2 text-sm font-headline flex items-center gap-2"><Lightbulb className="text-yellow-400" size={16}/>AI Driving Coach</h3>
+    <div className="flex-grow flex flex-col items-center justify-center text-center">
+      <p className="text-sm font-semibold leading-snug">{recommendation}</p>
+      {justification && <p className="text-xs text-muted-foreground mt-2">{justification}</p>}
+    </div>
+  </Card>
+);
 
 export default function DashboardTab({
   state,
@@ -110,8 +114,13 @@ export default function DashboardTab({
           </div>
         </Card>
 
-        <Card className="p-4">
-            <h3 className="font-semibold mb-2 text-sm font-headline">Trip Info</h3>
+        <AICoachingCard
+            recommendation={state.drivingRecommendation}
+            justification={state.drivingRecommendationJustification}
+        />
+
+        <Card className="p-4 flex-grow">
+            <h3 className="font-semibold mb-2 text-sm font-headline">Trip & Load</h3>
             <div className="space-y-2 text-xs">
                 <p className="flex justify-between items-center"><span>Odometer:</span> <span className="font-mono font-semibold">{state.odometer.toFixed(1)} km</span></p>
                 <div className="flex items-center justify-between">
@@ -151,30 +160,6 @@ export default function DashboardTab({
             </div>
         </Card>
 
-
-        <Card className="p-4 flex flex-col flex-grow min-h-0">
-          <h3 className="font-semibold mb-3 text-sm font-headline">Climate</h3>
-          <div className="flex-grow flex flex-col justify-between gap-4 py-2">
-            <div className="flex items-center justify-between w-full">
-              <p className="text-sm font-medium">A/C</p>
-              <Switch checked={state.acOn} onCheckedChange={toggleAC} />
-            </div>
-            <div className="text-center flex-1 flex flex-col items-center justify-center">
-              <p className="text-5xl font-bold font-headline mb-1">{state.acTemp}°C</p>
-              <p className={cn("text-xs font-bold uppercase", state.acOn ? 'text-primary' : 'text-muted-foreground')}>
-                {state.acOn ? 'ON' : 'OFF'}
-              </p>
-            </div>
-            <div className="w-full px-2">
-              <Slider
-                value={[state.acTemp]}
-                onValueChange={([v]) => setAcTemp(v)}
-                min={18} max={28} step={1}
-                disabled={!state.acOn}
-              />
-            </div>
-          </div>
-        </Card>
       </div>
 
       {/* Center Column */}
@@ -210,6 +195,30 @@ export default function DashboardTab({
             <SpeedGauge speed={state.displaySpeed} driveMode={state.driveMode} />
           </Card>
         </div>
+        
+        <Card className="p-4">
+          <h3 className="font-semibold mb-3 text-sm font-headline">Climate</h3>
+          <div className="flex flex-col justify-between gap-4 py-2">
+            <div className="flex items-center justify-between w-full">
+              <p className="text-sm font-medium">A/C</p>
+              <Switch checked={state.acOn} onCheckedChange={toggleAC} />
+            </div>
+            <div className="text-center flex-1 flex flex-col items-center justify-center">
+              <p className="text-5xl font-bold font-headline mb-1">{state.acTemp}°C</p>
+              <p className={cn("text-xs font-bold uppercase", state.acOn ? 'text-primary' : 'text-muted-foreground')}>
+                {state.acOn ? 'ON' : 'OFF'}
+              </p>
+            </div>
+            <div className="w-full px-2">
+              <Slider
+                value={[state.acTemp]}
+                onValueChange={([v]) => setAcTemp(v)}
+                min={18} max={28} step={1}
+                disabled={!state.acOn}
+              />
+            </div>
+          </div>
+        </Card>
 
         <div className="flex-grow min-h-0">
           <Weather weather={state.weather} forecast={state.weatherForecast} />
@@ -236,3 +245,5 @@ export default function DashboardTab({
     </div>
   );
 }
+
+    
