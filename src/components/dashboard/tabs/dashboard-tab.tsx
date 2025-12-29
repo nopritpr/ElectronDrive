@@ -31,7 +31,7 @@ interface DashboardTabProps {
 }
 
 const AICoachingCard = ({ recommendation, justification }: { recommendation: string, justification: string | null }) => (
-  <Card className="p-4 flex flex-col">
+  <Card className="p-4 flex flex-col h-40">
     <h3 className="font-semibold mb-2 text-sm font-headline flex items-center gap-2"><Lightbulb className="text-yellow-400" size={16}/>AI Driving Coach</h3>
     <div className="flex-grow flex flex-col items-center justify-center text-center">
       <p className="text-sm font-semibold leading-snug">{recommendation}</p>
@@ -119,7 +119,7 @@ export default function DashboardTab({
             justification={state.drivingRecommendationJustification}
         />
         
-        <div className="flex-grow min-h-0">
+        <div className="flex-grow min-h-0 mt-2">
           <Weather weather={state.weather} forecast={state.weatherForecast} />
         </div>
       </div>

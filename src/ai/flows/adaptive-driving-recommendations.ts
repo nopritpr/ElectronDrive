@@ -53,10 +53,8 @@ const adaptiveDrivingRecommendationsPrompt = ai.definePrompt({
   name: 'adaptiveDrivingRecommendationsPrompt',
   input: {schema: DrivingRecommendationInputSchema},
   output: {schema: DrivingRecommendationOutputSchema},
-  config: {
-    model: googleAI.model('gemini-pro'),
-    temperature: 0.2,
-  },
+  model: googleAI.model('gemini-pro'),
+  temperature: 0.2,
   prompt: `You are an expert AI driving coach for an electric vehicle. Your goal is to provide positive, helpful, and actionable recommendations to the driver to maximize their energy efficiency and range. Analyze the real-time data provided and generate a single recommendation with a clear justification.
 
   Current Vehicle & Environmental Data:
