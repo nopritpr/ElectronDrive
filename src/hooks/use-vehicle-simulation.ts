@@ -668,5 +668,3 @@ export function useVehicleSimulation() {
     toggleCabinOverheatProtection,
   };
 }
-
-    

@@ -118,48 +118,10 @@ export default function DashboardTab({
             recommendation={state.drivingRecommendation}
             justification={state.drivingRecommendationJustification}
         />
-
-        <Card className="p-4 flex-grow">
-            <h3 className="font-semibold mb-2 text-sm font-headline">Trip & Load</h3>
-            <div className="space-y-2 text-xs">
-                <p className="flex justify-between items-center"><span>Odometer:</span> <span className="font-mono font-semibold">{state.odometer.toFixed(1)} km</span></p>
-                <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-1">
-                    <Button size="xs" variant={state.activeTrip === 'A' ? 'secondary' : 'ghost'} onClick={() => setActiveTrip('A')}>Trip A</Button>
-                    <Button size="xs" variant={state.activeTrip === 'B' ? 'secondary' : 'ghost'} onClick={() => setActiveTrip('B')}>Trip B</Button>
-                </div>
-                <span className="font-mono font-semibold">{(state.activeTrip === 'A' ? state.tripA : state.tripB).toFixed(1)} km</span>
-                <Button variant="link" size="xs" className="text-destructive" onClick={resetTrip}>Reset</Button>
-                </div>
-                 <div className="space-y-3 pt-3 mt-2 border-t">
-                    <div className="flex items-center justify-between">
-                        <Label className="flex items-center gap-2 text-xs"><Users size={14}/> Passengers</Label>
-                        <div className="flex items-center gap-1.5">
-                            <Button size="xs" variant="outline" className="h-6 w-6 p-0" onClick={() => setPassengers(Math.max(1, state.passengers - 1))}>-</Button>
-                            <span className="font-mono font-semibold text-xs w-4 text-center">{state.passengers}</span>
-                            <Button size="xs" variant="outline" className="h-6 w-6 p-0" onClick={() => setPassengers(Math.min(7, state.passengers + 1))}>+</Button>
-                        </div>
-                    </div>
-                     <div className="flex items-center justify-between">
-                        <Label htmlFor="goods-toggle" className="flex items-center gap-2 text-xs"><Package size={14}/> Goods in Boot</Label>
-                        <Switch id="goods-toggle" checked={state.goodsInBoot} onCheckedChange={toggleGoodsInBoot} />
-                    </div>
-                </div>
-                <p className="flex justify-between items-center pt-2 border-t">
-                <span>Power:</span>
-                <span className={cn("font-mono font-semibold", state.power < 0 && "text-regen-green")}>
-                    {state.power.toFixed(1)} kW
-                </span>
-                </p>
-                <p className="flex justify-between items-center">
-                <span>Efficiency:</span>
-                <span className="font-mono font-semibold">
-                    {state.speed > 1 && isFinite(state.recentWhPerKm) && state.recentWhPerKm > 0 ? Math.round(state.recentWhPerKm) : '--'} Wh/km
-                </span>
-                </p>
-            </div>
-        </Card>
-
+        
+        <div className="flex-grow min-h-0">
+          <Weather weather={state.weather} forecast={state.weatherForecast} />
+        </div>
       </div>
 
       {/* Center Column */}
@@ -220,9 +182,46 @@ export default function DashboardTab({
           </div>
         </Card>
 
-        <div className="flex-grow min-h-0">
-          <Weather weather={state.weather} forecast={state.weatherForecast} />
-        </div>
+        <Card className="p-4 flex-grow">
+            <h3 className="font-semibold mb-2 text-sm font-headline">Trip & Load</h3>
+            <div className="space-y-2 text-xs">
+                <p className="flex justify-between items-center"><span>Odometer:</span> <span className="font-mono font-semibold">{state.odometer.toFixed(1)} km</span></p>
+                <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1">
+                    <Button size="xs" variant={state.activeTrip === 'A' ? 'secondary' : 'ghost'} onClick={() => setActiveTrip('A')}>Trip A</Button>
+                    <Button size="xs" variant={state.activeTrip === 'B' ? 'secondary' : 'ghost'} onClick={() => setActiveTrip('B')}>Trip B</Button>
+                </div>
+                <span className="font-mono font-semibold">{(state.activeTrip === 'A' ? state.tripA : state.tripB).toFixed(1)} km</span>
+                <Button variant="link" size="xs" className="text-destructive" onClick={resetTrip}>Reset</Button>
+                </div>
+                 <div className="space-y-3 pt-3 mt-2 border-t">
+                    <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2 text-xs"><Users size={14}/> Passengers</Label>
+                        <div className="flex items-center gap-1.5">
+                            <Button size="xs" variant="outline" className="h-6 w-6 p-0" onClick={() => setPassengers(Math.max(1, state.passengers - 1))}>-</Button>
+                            <span className="font-mono font-semibold text-xs w-4 text-center">{state.passengers}</span>
+                            <Button size="xs" variant="outline" className="h-6 w-6 p-0" onClick={() => setPassengers(Math.min(7, state.passengers + 1))}>+</Button>
+                        </div>
+                    </div>
+                     <div className="flex items-center justify-between">
+                        <Label htmlFor="goods-toggle" className="flex items-center gap-2 text-xs"><Package size={14}/> Goods in Boot</Label>
+                        <Switch id="goods-toggle" checked={state.goodsInBoot} onCheckedChange={toggleGoodsInBoot} />
+                    </div>
+                </div>
+                <p className="flex justify-between items-center pt-2 border-t">
+                <span>Power:</span>
+                <span className={cn("font-mono font-semibold", state.power < 0 && "text-regen-green")}>
+                    {state.power.toFixed(1)} kW
+                </span>
+                </p>
+                <p className="flex justify-between items-center">
+                <span>Efficiency:</span>
+                <span className="font-mono font-semibold">
+                    {state.speed > 1 && isFinite(state.recentWhPerKm) && state.recentWhPerKm > 0 ? Math.round(state.recentWhPerKm) : '--'} Wh/km
+                </span>
+                </p>
+            </div>
+        </Card>
 
         <Card className="p-4">
           <CardHeader className="p-0">
@@ -245,5 +244,3 @@ export default function DashboardTab({
     </div>
   );
 }
-
-    
