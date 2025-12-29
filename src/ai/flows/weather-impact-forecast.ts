@@ -8,6 +8,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 import { format } from 'date-fns';
 import { GetWeatherImpactInputSchema, GetWeatherImpactOutputSchema, type GetWeatherImpactInput } from '@/lib/types';
 
@@ -21,7 +22,7 @@ const weatherImpactPrompt = ai.definePrompt({
   input: {schema: GetWeatherImpactInputSchema},
   output: {schema: GetWeatherImpactOutputSchema},
   config: {
-    model: 'gemini-pro',
+    model: googleAI.model('gemini-pro'),
     temperature: 0.2,
   },
   prompt: `You are an expert Electric Vehicle energy consumption model. Your task is to predict the daily range penalty in kilometers for the next 5 days based on the provided weather forecast.
