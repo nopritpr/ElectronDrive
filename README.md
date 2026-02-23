@@ -1,6 +1,9 @@
 # ⚡ Electron Drive: Transparent AI for EV Range Prediction
 
 **A hybrid Electric Vehicle dashboard simulator combining deterministic physics and prompt-engineered Generative AI to deliver transparent, multi-factor range predictions and real-time driver insights.**
+<img width="1012" height="817" alt="Screenshot 2025-12-29 135638" src="https://github.com/user-attachments/assets/7d1748e2-d7a9-4e8b-ba28-5ba1f68d3838" />
+<img width="994" height="807" alt="Screenshot 2025-12-29 135626" src="https://github.com/user-attachments/assets/ffa7f45d-68c0-4670-a379-8eabd48ccf1b" />
+<img width="1012" height="817" alt="Screenshot 2025-12-29 135638" src="https://github.com/user-attachments/assets/378daa13-a053-42f5-bf7e-48d3309e61ae" />
 
 ---
 
